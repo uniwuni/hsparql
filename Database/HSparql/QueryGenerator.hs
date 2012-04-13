@@ -4,12 +4,13 @@
 --  endpoints.
 module Database.HSparql.QueryGenerator
     ( -- * Creating Queries
-      createQuery
-
+      createSelectQuery
+    , createConstructQuery
     -- * Query Actions
     , prefix
     , var
     , triple
+    , constructTriple
     , optional
     , union
     , filterExpr
@@ -57,11 +58,16 @@ module Database.HSparql.QueryGenerator
     -- * Types
     , Query
     , Variable
+    , Pattern
+    , SelectQuery(..)
+    , ConstructQuery(..)
     )
 where
 
 import Control.Monad.State
 import Data.List (intercalate)
+
+import Debug.Trace
 
 -- State monads
 
@@ -73,20 +79,29 @@ type Query a = State QueryData a
 execQuery :: Query a -> (QueryData -> b) -> b
 execQuery q f = f $ execState q queryData
 
--- |Execute a 'Query' action, returning the 'String' representation of the query.
-createQuery :: Query [Variable] -> String
-createQuery q = execQuery specifyVars qshow
+-- |Execute a 'Select Query' action, returning the 'String' representation of the query.
+createSelectQuery :: Query SelectQuery -> String
+createSelectQuery q = execQuery specifyVars qshow
     where specifyVars :: Query ()
-          specifyVars = do vs <- q
-                           modify $ \s -> s { vars = vs }
+          specifyVars = do query <- q
+                           modify $ \s -> s { vars = queryVars query , queryType = SelectType }
+
+-- |Execute a 'Construct Query' action, returning the 'String' representation of the query.
+createConstructQuery :: Query ConstructQuery -> String
+createConstructQuery q = trace (execQuery specifyType qshow) execQuery specifyType qshow
+    where specifyType :: Query ()
+          specifyType = do
+           query <- q
+           modify $ \s -> s { constructTriples = queryConstructs query, queryType = ConstructType }
+
 
 -- Manipulate data within monad
 
 -- |Add a prefix to the query, given an IRI reference, and return it.
-prefix :: IRIRef -> Query Prefix
-prefix ref = do n <- gets prefixIdx
-                let p = Prefix n ref
-                modify $ \s -> s { prefixIdx = n + 1, prefixes = p : prefixes s }
+prefix :: String -> IRIRef -> Query Prefix
+prefix pre ref = do -- n <- gets prefixIdx
+                let p = Prefix pre ref
+                modify $ \s -> s { {- prefixIdx = n + 1, -} prefixes = p : prefixes s }
                 return p
 
 -- |Create and return a variable to the query, usable in later expressions.
@@ -102,6 +117,14 @@ triple a b c = do
     let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
     modify $ \s -> s { pattern = appendPattern t (pattern s) }
     return t
+
+
+constructTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+constructTriple a b c = do
+    let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+    modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
+    return t
+
 
 -- |Add optional constraints on matches. Variable bindings within the optional
 --  action are lost, so variables must always be defined prior to opening the
@@ -120,9 +143,9 @@ union :: Query a -> Query b -> Query Pattern
 union q1 q2 = do 
     let p1    = execQuery q1 pattern
         p2    = execQuery q2 pattern
-        union = UnionGraphPattern p1 p2
-    modify $ \s -> s { pattern = appendPattern union (pattern s) }
-    return union
+        union' = UnionGraphPattern p1 p2
+    modify $ \s -> s { pattern = appendPattern union' (pattern s) }
+    return union'
 
 -- |Restrict results to only those for which the given expression is true.
 filterExpr :: (TermLike a) => a -> Query Pattern
@@ -163,12 +186,12 @@ orderNext = orderNextAsc
 -- |Order the results, after any previous ordering, based on the term, in
 --  ascending order.
 orderNextAsc :: (TermLike a) => a -> Query ()
-orderNextAsc x  = do modify $ \s -> s { ordering = (ordering s) ++ [Asc  $ expr x] }
+orderNextAsc x  = modify $ \s -> s { ordering = ordering s ++ [Asc  $ expr x] }
 
 -- |Order the results, after any previous ordering, based on the term, in
 --  descending order.
 orderNextDesc :: (TermLike a) => a -> Query ()
-orderNextDesc x = do modify $ \s -> s { ordering = (ordering s) ++ [Desc $ expr x] }
+orderNextDesc x = modify $ \s -> s { ordering = ordering s ++ [Desc $ expr x] }
 
 -- Permit variables and values to seemlessly be put into argument for 'triple'
 -- and similar functions
@@ -196,7 +219,7 @@ instance TermLike [Char] where
   varOrTerm = Term . RDFLiteralTerm . RDFLiteral
 
 instance TermLike ([Char], [Char]) where
-  varOrTerm (s, lang) = Term . RDFLiteralTerm $ RDFLiteralLang s lang
+  varOrTerm (s, lang') = Term . RDFLiteralTerm $ RDFLiteralLang s lang'
 
 instance TermLike ([Char], IRIRef) where
   varOrTerm (s, ref) = Term . RDFLiteralTerm $ RDFLiteralIRIRef s ref
@@ -309,14 +332,18 @@ regex = builtinFunc2 RegexFunc
 -- Default QueryData
 queryData :: QueryData
 queryData = QueryData
-    { prefixIdx  = 0
-    , prefixes   = []
+    { {- prefixIdx  = 0
+    , -} prefixes   = []
     , varsIdx    = 0
     , vars       = []
+    , queryType  = TypeNotSet
     , pattern    = GroupGraphPattern []
+    , constructTriples = []
     , duplicates = NoLimits
     , ordering   = []
     }
+
+
 
 -- Query representation
 class QueryShow a where
@@ -326,9 +353,11 @@ class QueryShow a where
 
 data Duplicates = NoLimits | Distinct | Reduced
 
-data Prefix = Prefix Int IRIRef
+-- data Prefix = Prefix Int IRIRef
+data Prefix = Prefix String IRIRef
 
 data Variable = Variable Int
+
 
 data IRIRef = IRIRef String
             | PrefixedName Prefix String 
@@ -375,22 +404,38 @@ data OrderBy = Asc Expr
              | Desc Expr
 
 -- Auxiliary, but fairly useful
+-- TODO don't add to end
 appendPattern :: Pattern -> GroupGraphPattern -> GroupGraphPattern
 appendPattern p (GroupGraphPattern ps) = GroupGraphPattern (ps ++ [p])
 
+appendTriple :: a -> [a] -> [a]
+appendTriple t ts = t : ts
+
 data QueryData = QueryData
-    { prefixIdx  :: Int
-    , prefixes   :: [Prefix]
+    { prefixes   :: [Prefix]
     , varsIdx    :: Int
     , vars       :: [Variable]
+    , queryType  :: QueryType
     , pattern    :: GroupGraphPattern
+    , constructTriples :: [Pattern] -- Triple
     , duplicates :: Duplicates
     , ordering   :: [OrderBy]
     }
 
+
+data QueryType = SelectType | ConstructType | TypeNotSet
+
+data QueryForm = SelectForm QueryData | ConstructForm QueryData
+
+data ConstructQuery = ConstructQuery
+    { queryConstructs :: [Pattern] }
+
+data SelectQuery = SelectQuery
+    { queryVars :: [Variable] }
+
 -- QueryShow instances
 instance (QueryShow a) => QueryShow [a] where
-  qshow xs = intercalate " " $ map qshow xs
+  qshow xs = unwords $ map qshow xs
 
 instance QueryShow Duplicates where
   qshow NoLimits = ""
@@ -398,19 +443,19 @@ instance QueryShow Duplicates where
   qshow Reduced  = "REDUCED"
 
 instance QueryShow Prefix where
-  qshow (Prefix n ref) = "PREFIX p" ++ show n ++ ": " ++ qshow ref
+  qshow (Prefix pre ref) = "PREFIX " ++ pre ++ ": " ++ qshow ref
 
 instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
 
 instance QueryShow IRIRef where
   qshow (IRIRef r) = "<" ++ r ++ ">"
-  qshow (PrefixedName (Prefix n ref) s) = "p" ++ show n ++ ":" ++ s
+  qshow (PrefixedName (Prefix pre _) s) = pre ++ ":" ++ s
 
 instance QueryShow RDFLiteral where
   -- Always use triple-quoted strings to avoid having to deal with quote-escaping
   qshow (RDFLiteral s)           = "\"\"\"" ++ s ++ "\"\"\""
-  qshow (RDFLiteralLang s lang)  = "\"\"\"" ++ s ++ "\"\"\"@" ++ lang
+  qshow (RDFLiteralLang s lang')  = "\"\"\"" ++ s ++ "\"\"\"@" ++ lang'
   qshow (RDFLiteralIRIRef s ref) = "\"\"\"" ++ s ++ "\"\"\"^^" ++ qshow ref
 
 instance QueryShow GraphTerm where
@@ -459,10 +504,10 @@ instance QueryShow Expr where
   qshow e = "(" ++ qshow' e ++ ")"
     where qshow' (OrExpr es)        = intercalate " || " $ map qshow es
           qshow' (AndExpr es)       = intercalate " && " $ map qshow es
-          qshow' (NegatedExpr e)    = '!' : qshow e
+          qshow' (NegatedExpr e')    = '!' : qshow e'
           qshow' (RelationalExpr rel e1 e2) = qshow e1 ++ qshow rel ++ qshow e2
-          qshow' (NumericExpr e)    = qshow e
-          qshow' (BuiltinCall f es) = qshow f ++ "(" ++ (intercalate ", " $ map qshow es) ++ ")"
+          qshow' (NumericExpr e')    = qshow e'
+          qshow' (BuiltinCall f es) = qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
 
 instance QueryShow Pattern where
   qshow (Triple a b c) = qshow [a, b, c] ++ "."
@@ -478,14 +523,25 @@ instance QueryShow OrderBy where
   qshow (Asc e)  = "ASC(" ++ qshow e ++ ")"
   qshow (Desc e) = "DESC(" ++ qshow e ++ ")"
 
+
+instance QueryShow QueryForm where
+  qshow (SelectForm qd) =  unwords 
+                        [ "SELECT"
+                         , qshow (duplicates qd)
+                         , qshow (vars qd)
+                        ]
+
+  qshow (ConstructForm qd) = "CONSTRUCT { " ++ qshow (constructTriples qd) ++ " }"
+
+
 instance QueryShow QueryData where
-  qshow qd = intercalate " " $ [ qshow (prefixes qd)
-                               , "SELECT"
-                               , qshow (duplicates qd)
-                               , qshow (vars qd)
+  qshow qd = let showFormedQuery = case queryType qd of
+                  SelectType -> qshow (SelectForm qd)
+                  ConstructType -> qshow (ConstructForm qd)
+             in unwords $ [ qshow (prefixes qd)
+                               , showFormedQuery
                                , "WHERE"
                                , qshow (pattern qd)
                                ] ++ case ordering qd of
                                       [] -> []
-                                      os -> ["ORDER BY"] ++ map qshow os
-
+                                      os -> "ORDER BY" : map qshow os
