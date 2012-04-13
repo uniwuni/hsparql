@@ -1,4 +1,3 @@
-
 * Introduction
 
 hsparql includes a DSL to easily create queries, as well as methods to
@@ -9,7 +8,8 @@ simple Haskell data structures.
 
 Take the following SPARQL query:
 
-```
+#+NAME: <sparql1>
+     #+BEGIN_SRC <>
 PREFIX dbpedia: <http://dbpedia.org/resource/>
 PREFIX dbprop: <http://dbpedia.org/property/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
@@ -19,11 +19,13 @@ WHERE {
 ?x foaf:name ?name
 ?x foaf:page ?page
 }
-```
+     #+END_SRC
+
 
 Can be generated using the following Haskell code:
 
-```
+#+NAME: <sparql1>
+     #+BEGIN_SRC <>
 simple :: Query SelectQuery
 simple = do
     resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
@@ -40,13 +42,14 @@ simple = do
     triple x (foaf .:. "page") page
 
     return SelectQuery { queryVars = [name, page] }
-```
+     #+END_SRC
 
 ** Construct Queries
 
 Take the following SPARQL query:
 
-```
+#+NAME: <sparql1>
+     #+BEGIN_SRC <>
 PREFIX dbpedia: <http://dbpedia.org/resource/>
 PREFIX dbprop: <http://dbpedia.org/property/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
@@ -59,11 +62,12 @@ WHERE {
 ?x foaf:name ?name
 ?x foaf:page ?page
 }
-```
+     #+END_SRC
 
 Can be generated using the following Haskell code:
 
-```
+#+NAME: <haskell1>
+     #+BEGIN_SRC <haskell>
 simpleConstruct :: Query ConstructQuery
 simpleConstruct = do
     resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
@@ -82,7 +86,7 @@ simpleConstruct = do
     triple x (foaf .:. "page") page
 
     return ConstructQuery { queryConstructs = [construct] }
-```
+     #+END_SRC
 
 ** Output Types
 
@@ -92,17 +96,19 @@ SELECT queries generate a set of sparql query solutions. See:
 http://www.w3.org/TR/rdf-sparql-XMLres/
 
 
-```
+#+NAME: <>
+     #+BEGIN_SRC <haskell>
 selectExample :: IO ()
 selectExample = do
   (Just s) <- selectQuery "http://dbpedia.org/sparql" simple
   putStrLn . take 500 . show $ s
-```
+     #+END_SRC
 
 Here's the respective type:
-```
+#+NAME: <>
+     #+BEGIN_SRC <haskell>
 selectQuery :: EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
-```
+     #+END_SRC
 
 
 *** Construct Queries
@@ -111,17 +117,19 @@ CONSTRUCT queries generate RDF, which is serialized in XML in this
 package. See:
 http://www.w3.org/TR/rdf-primer/#rdfxml
 
-```
+#+NAME: <sparql1>
+     #+BEGIN_SRC <haskell>
 constructExample :: IO ()
 constructExample = do
   rdfGraph <- constructQuery "http://dbpedia.org/sparql" simpleConstruct
   mapM_ print (triplesOf rdfGraph)
-```
+     #+END_SRC
 
 Here's the respective type:
-```
+#+NAME: <sparql1>
+     #+BEGIN_SRC <haskell>
 constructQuery :: EndPoint -> Query ConstructQuery -> IO TriplesGraph
-```
+     #+END_SRC
 
 ** TODO
 
