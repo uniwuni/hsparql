@@ -26,8 +26,8 @@ Can be generated using the following Haskell code:
 
 #+NAME: <sparql1>
      #+BEGIN_SRC <>
-simple :: Query SelectQuery
-simple = do
+simpleSelect :: Query SelectQuery
+simpleSelect = do
     resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
     dbpprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
     foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
@@ -100,7 +100,7 @@ http://www.w3.org/TR/rdf-sparql-XMLres/
      #+BEGIN_SRC <haskell>
 selectExample :: IO ()
 selectExample = do
-  (Just s) <- selectQuery "http://dbpedia.org/sparql" simple
+  (Just s) <- selectQuery "http://dbpedia.org/sparql" simpleSelect
   putStrLn . take 500 . show $ s
      #+END_SRC
 
@@ -131,7 +131,7 @@ Here's the respective type:
 constructQuery :: EndPoint -> Query ConstructQuery -> IO TriplesGraph
      #+END_SRC
 
-** TODO
+** TODO's
 
 *** Opt for a unified Type representation
 This hsparql package and the RDF4H [1] package use similar, but not
