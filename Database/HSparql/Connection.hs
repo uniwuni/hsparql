@@ -1,7 +1,8 @@
 module Database.HSparql.Connection
     ( EndPoint
     , BindingValue(..)
-    , query
+    , selectQuery
+    , constructQuery
     )
 where
 
@@ -11,6 +12,12 @@ import qualified Network.HTTP as HTTP
 import Text.XML.Light
 
 import Database.HSparql.QueryGenerator
+
+import Text.RDF.RDF4H.XmlParser
+import Data.RDF.TriplesGraph
+import qualified Data.ByteString.Lazy.Char8 as B
+
+import Network.URI hiding (URI)
 
 -- |URI of the SPARQL endpoint.
 type EndPoint = String
@@ -37,7 +44,7 @@ structureContent s =
           doc = parseXMLDoc s
 
           vars :: Element -> [String]
-          vars = catMaybes . map (findAttr $ unqual "name") . findElements (sparqlResult "variable")
+          vars = mapMaybe (findAttr $ unqual "name") . findElements (sparqlResult "variable")
 
           projectResult :: [String] -> Element -> [BindingValue]
           projectResult vs e = map pVar vs
@@ -60,10 +67,30 @@ structureContent s =
           langAttr = blank_name { qName = "lang", qPrefix = Just "xml" }
 
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
---  'Variable's in the 'Query' action.
-query :: EndPoint -> Query [Variable] -> IO (Maybe [[BindingValue]])
-query ep q = do
-    let uri      = ep ++ "?" ++ HTTP.urlEncodeVars [("query", createQuery q)]
+--  'Variable's in the 'SelectQuery' action.
+selectQuery :: EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
+selectQuery ep q = do
+    let uri      = ep ++ "?" ++ HTTP.urlEncodeVars [("query", createSelectQuery q)]
         request  = HTTP.replaceHeader HTTP.HdrUserAgent "hsparql-client" (HTTP.getRequest uri)
     response <- HTTP.simpleHTTP request >>= HTTP.getResponseBody
     return $ structureContent response
+
+-- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
+--  'ConstructQuery' action. /Provisional implementation/.
+constructQuery :: EndPoint -> Query ConstructQuery -> IO TriplesGraph
+constructQuery ep q = do
+    let uri      = ep ++ "?" ++ HTTP.urlEncodeVars [("query", createConstructQuery q)]
+        h1 = HTTP.mkHeader HTTP.HdrUserAgent "hsparql-client"
+        h2 = HTTP.mkHeader HTTP.HdrAccept "application/rdf+xml"
+        request = HTTP.Request { HTTP.rqURI = fromJust $ parseURI uri
+                          , HTTP.rqHeaders = [h1,h2]
+                          , HTTP.rqMethod = HTTP.GET
+                          , HTTP.rqBody = ""
+                          }
+    response <- HTTP.simpleHTTP request >>= HTTP.getResponseBody
+    putStrLn response
+    let rdfGraph = parseXmlRDF Nothing Nothing (B.pack response)
+    case rdfGraph of
+     Left e -> error $ show e
+     Right graph -> return graph
+    
