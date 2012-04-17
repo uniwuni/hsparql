@@ -10,11 +10,10 @@ import Control.Monad
 import Data.Maybe
 import qualified Network.HTTP as HTTP
 import Text.XML.Light
-
 import Database.HSparql.QueryGenerator
-
-import Text.RDF.RDF4H.XmlParser
 import Data.RDF.TriplesGraph
+import Text.RDF.RDF4H.TurtleParser
+import Data.RDF
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Network.URI hiding (URI)
@@ -81,15 +80,14 @@ constructQuery :: EndPoint -> Query ConstructQuery -> IO TriplesGraph
 constructQuery ep q = do
     let uri      = ep ++ "?" ++ HTTP.urlEncodeVars [("query", createConstructQuery q)]
         h1 = HTTP.mkHeader HTTP.HdrUserAgent "hsparql-client"
-        h2 = HTTP.mkHeader HTTP.HdrAccept "application/rdf+xml"
+        h2 = HTTP.mkHeader HTTP.HdrAccept "text/rdf+n3"
         request = HTTP.Request { HTTP.rqURI = fromJust $ parseURI uri
                           , HTTP.rqHeaders = [h1,h2]
                           , HTTP.rqMethod = HTTP.GET
                           , HTTP.rqBody = ""
                           }
     response <- HTTP.simpleHTTP request >>= HTTP.getResponseBody
-    putStrLn response
-    let rdfGraph = parseXmlRDF Nothing Nothing (B.pack response)
+    let rdfGraph = parseString (TurtleParser Nothing Nothing) (B.pack response)
     case rdfGraph of
      Left e -> error $ show e
      Right graph -> return graph
