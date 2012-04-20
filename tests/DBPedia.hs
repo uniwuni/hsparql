@@ -13,7 +13,7 @@ selectExample = do
 askExample :: IO ()
 askExample = do
   res <- askQuery "http://dbpedia.org/sparql" simpleAsk
-  putStrLn $ "result: " ++ (show res)
+  putStrLn $ "result: " ++ (show (res::Bool))
 
 describeExample :: IO ()
 describeExample = do

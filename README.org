@@ -113,7 +113,7 @@ selectQuery :: EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
 
 *** Construct Queries
 
-CONSTRUCT queries generate RDF, which is serialized in XML in this
+CONSTRUCT queries generate RDF, which is serialized in N3 in this
 package. See:
 http://www.w3.org/TR/rdf-primer/#rdfxml
 
@@ -128,7 +128,47 @@ constructExample = do
 Here's the respective type:
 #+NAME: <sparql1>
      #+BEGIN_SRC <haskell>
-constructQuery :: EndPoint -> Query ConstructQuery -> IO TriplesGraph
+constructQuery :: EndPoint -> Query ConstructQuery -> IO MGraph
+     #+END_SRC
+
+*** Describe Queries
+
+DESCRIBE queries generate RDF, which is serialized in N3 in this
+package. See:
+http://www.w3.org/TR/rdf-sparql-query/#describe
+
+#+NAME: <sparql1>
+     #+BEGIN_SRC <haskell>
+describeExample :: IO ()
+describeExample = do
+  rdfGraph <- describeQuery "http://dbpedia.org/sparql" simpleDescribe
+  mapM_ print (triplesOf rdfGraph
+     #+END_SRC
+
+Here's the respective type:
+#+NAME: <sparql1>
+     #+BEGIN_SRC <haskell>
+describeQuery :: EndPoint -> Query DescribeQuery -> IO MGraph
+     #+END_SRC
+
+*** Ask Queries
+
+ASK queries inspects whether or not a triple exists. RDF is an
+open-world assumption. See:
+http://www.w3.org/TR/rdf-sparql-query/#ask
+
+#+NAME: <sparql1>
+     #+BEGIN_SRC <haskell>
+askExample :: IO ()
+askExample = do
+  res <- askQuery "http://dbpedia.org/sparql" simpleAsk
+  putStrLn $ "result: " ++ (show (res::Bool))
+     #+END_SRC
+
+Here's the respective type:
+#+NAME: <sparql1>
+     #+BEGIN_SRC <haskell>
+askQuery :: EndPoint -> Query AskQuery -> IO Bool
      #+END_SRC
 
 ** TODO's
