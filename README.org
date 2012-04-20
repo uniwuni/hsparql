@@ -88,6 +88,51 @@ simpleConstruct = do
     return ConstructQuery { queryConstructs = [construct] }
      #+END_SRC
 
+** Describe Queries
+
+Take the following SPARQL query:
+
+#+NAME: <sparql1>
+     #+BEGIN_SRC <>
+DESCRIBE <http://dbpedia.org/resource/Edinburgh>
+     #+END_SRC
+
+Can be generated using the following Haskell code:
+
+#+NAME: <haskell1>
+     #+BEGIN_SRC <haskell>
+simpleDescribe :: Query DescribeQuery
+simpleDescribe = do
+    resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+    uri <- describeIRI (resource .:. "Edinburgh")
+    return DescribeQuery { queryDescribe = uri }
+     #+END_SRC
+
+** Ask Queries
+
+Take the following SPARQL query:
+
+#+NAME: <sparql1>
+     #+BEGIN_SRC <>
+PREFIX dbprop: <http://dbpedia.org/property/>
+ASK { ?x dbprop:genre <http://dbpedia.org/resource/Web_browser> }
+     #+END_SRC
+
+Can be generated using the following Haskell code:
+
+#+NAME: <haskell1>
+     #+BEGIN_SRC <haskell>
+simpleAsk :: Query AskQuery
+simpleAsk = do
+    resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+    dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
+
+    x <- var
+    ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
+
+    return AskQuery { queryAsk = [ask] }
+     #+END_SRC
+
 ** Output Types
 
 *** Select Queries
