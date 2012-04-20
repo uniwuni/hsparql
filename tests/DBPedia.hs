@@ -7,10 +7,18 @@ import Data.RDF hiding (triple)
 
 selectExample :: IO ()
 selectExample = do
-  (Just s) <- selectQuery "http://dbpedia.org/sparql" simple
+  (Just s) <- selectQuery "http://dbpedia.org/sparql" simpleSelect
   putStrLn . take 500 . show $ s
-  -- putStrLn $ createQuery tricky -- or just print the query
 
+askExample :: IO ()
+askExample = do
+  res <- askQuery "http://dbpedia.org/sparql" simpleAsk
+  putStrLn $ "result: " ++ (show res)
+
+describeExample :: IO ()
+describeExample = do
+  rdfGraph <- describeQuery "http://dbpedia.org/sparql" simpleDescribe
+  mapM_ print (triplesOf rdfGraph)
 
 constructExample :: IO ()
 constructExample = do
@@ -18,8 +26,8 @@ constructExample = do
   mapM_ print (triplesOf rdfGraph)
 
 
-simple :: Query SelectQuery
-simple = do
+simpleSelect :: Query SelectQuery
+simpleSelect = do
     resource <- prefix "dbprop" (iriRef "http://dbpedia.org/resource/")
     dbpprop  <- prefix "dbpedia" (iriRef "http://dbpedia.org/property/")
     foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
@@ -34,7 +42,6 @@ simple = do
     triple x (foaf .:. "page") page
 
     return SelectQuery { queryVars = [name, page] }
-
 
 
 simpleConstruct :: Query ConstructQuery
@@ -57,8 +64,26 @@ simpleConstruct = do
     return ConstructQuery { queryConstructs = [construct] }
 
 
-tricky :: Query SelectQuery
-tricky = do
+simpleAsk :: Query AskQuery
+simpleAsk = do
+    resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+    dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
+
+    x <- var
+    ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
+
+    return AskQuery { queryAsk = [ask] }
+
+
+simpleDescribe :: Query DescribeQuery
+simpleDescribe = do
+    resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+    uri <- describeIRI (resource .:. "Edinburgh")
+    return DescribeQuery { queryDescribe = uri }
+
+
+trickySelect :: Query SelectQuery
+trickySelect = do
     resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
     dbpprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
     foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
@@ -87,15 +112,15 @@ tricky = do
 
     return SelectQuery { queryVars =  [x, name, page, fbase] }
 
-frenchFilms :: Query SelectQuery
-frenchFilms = do
+frenchFilmsSelect :: Query SelectQuery
+frenchFilmsSelect = do
     skos <- prefix "skos" (iriRef "http://www.w3.org/2004/02/skos/core#")
     film <- var
     triple film (skos .:. "subject") (iriRef "http://dbpedia.org/resource/Category:French_films")
     return SelectQuery { queryVars = [film] }
 
-fps :: Query SelectQuery
-fps = do
+fpsSelect :: Query SelectQuery
+fpsSelect = do
     property  <- var
     hasValue  <- var
     isValueOf <- var
@@ -106,8 +131,8 @@ fps = do
 
     return SelectQuery { queryVars = [isValueOf] }
 
-berliners :: Query SelectQuery
-berliners = do
+berlinersSelect :: Query SelectQuery
+berlinersSelect = do
     xsd  <- prefix "xsd" (iriRef "http://www.w3.org/2001/XMLSchema#")
     prop <- prefix "prop" (iriRef "http://dbpedia.org/property/")
     dbo  <- prefix "dbo" (iriRef "http://dbpedia.org/ontology/")

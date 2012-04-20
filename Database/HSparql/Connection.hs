@@ -1,17 +1,19 @@
 module Database.HSparql.Connection
-    ( EndPoint
+    ( Database.HSparql.Connection.EndPoint
     , BindingValue(..)
     , selectQuery
     , constructQuery
+    , askQuery
+    , describeQuery
     )
 where
 
 import Control.Monad
 import Data.Maybe
-import qualified Network.HTTP as HTTP
+import Network.HTTP
 import Text.XML.Light
 import Database.HSparql.QueryGenerator
-import Data.RDF.TriplesGraph
+import Data.RDF.MGraph
 import Text.RDF.RDF4H.TurtleParser
 import Data.RDF
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -65,30 +67,63 @@ structureContent s =
           langAttr :: QName
           langAttr = blank_name { qName = "lang", qPrefix = Just "xml" }
 
+-- |Parses the response from a SPARQL ASK query. Either "true" or "false" is expected
+parseAsk :: String -> Bool
+parseAsk s
+  | s == "true" = True
+  | s == "false" = False
+  | otherwise = error $ "Unexpected Ask response: " ++ s
+
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
 --  'Variable's in the 'SelectQuery' action.
-selectQuery :: EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
+selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
 selectQuery ep q = do
-    let uri      = ep ++ "?" ++ HTTP.urlEncodeVars [("query", createSelectQuery q)]
-        request  = HTTP.replaceHeader HTTP.HdrUserAgent "hsparql-client" (HTTP.getRequest uri)
-    response <- HTTP.simpleHTTP request >>= HTTP.getResponseBody
+    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
+        request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
+    response <- simpleHTTP request >>= getResponseBody
     return $ structureContent response
+
+-- |Connect to remote 'EndPoint' and find all possible bindings for the
+--  'Variable's in the 'SelectQuery' action.
+askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
+askQuery ep q = do
+    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
+        request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
+    response <- simpleHTTP request >>= getResponseBody
+    return $ parseAsk response
+
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-constructQuery :: EndPoint -> Query ConstructQuery -> IO TriplesGraph
+constructQuery :: Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO MGraph
 constructQuery ep q = do
-    let uri      = ep ++ "?" ++ HTTP.urlEncodeVars [("query", createConstructQuery q)]
-        h1 = HTTP.mkHeader HTTP.HdrUserAgent "hsparql-client"
-        h2 = HTTP.mkHeader HTTP.HdrAccept "text/rdf+n3"
-        request = HTTP.Request { HTTP.rqURI = fromJust $ parseURI uri
-                          , HTTP.rqHeaders = [h1,h2]
-                          , HTTP.rqMethod = HTTP.GET
-                          , HTTP.rqBody = ""
-                          }
-    response <- HTTP.simpleHTTP request >>= HTTP.getResponseBody
-    let rdfGraph = parseString (TurtleParser Nothing Nothing) (B.pack response)
+    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
+    rdfGraph <- httpCallForRdf uri
+    case rdfGraph of
+     Left e -> error $ show e
+     Right graph -> return graph
+   
+
+-- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
+--  'ConstructQuery' action. /Provisional implementation/.
+describeQuery :: Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO MGraph
+describeQuery ep q = do
+    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
+    rdfGraph <- httpCallForRdf uri
     case rdfGraph of
      Left e -> error $ show e
      Right graph -> return graph
     
+-- |Takes a generated uri and makes simple HTTP request,
+-- asking for RDF N3 serialization. Returns either 'ParseFailure' or 'RDF'
+httpCallForRdf :: RDF rdf => String -> IO (Either ParseFailure rdf)
+httpCallForRdf uri = do
+ let h1 = mkHeader HdrUserAgent "hsparql-client"
+     h2 = mkHeader HdrAccept "text/rdf+n3"
+     request = Request { rqURI = fromJust $ parseURI uri
+                          , rqHeaders = [h1,h2]
+                          , rqMethod = GET
+                          , rqBody = ""
+                          }
+ response <- simpleHTTP request >>= getResponseBody
+ return $ parseString (TurtleParser Nothing Nothing) (B.pack response)

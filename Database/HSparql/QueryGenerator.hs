@@ -6,11 +6,15 @@ module Database.HSparql.QueryGenerator
     ( -- * Creating Queries
       createSelectQuery
     , createConstructQuery
+    , createAskQuery
+    , createDescribeQuery
     -- * Query Actions
     , prefix
     , var
     , triple
     , constructTriple
+    , askTriple
+    , describeIRI
     , optional
     , union
     , filterExpr
@@ -61,13 +65,14 @@ module Database.HSparql.QueryGenerator
     , Pattern
     , SelectQuery(..)
     , ConstructQuery(..)
+    , AskQuery(..)
+    , DescribeQuery(..)
     )
 where
 
 import Control.Monad.State
 import Data.List (intercalate)
 
-import Debug.Trace
 
 -- State monads
 
@@ -88,12 +93,27 @@ createSelectQuery q = execQuery specifyVars qshow
 
 -- |Execute a 'Construct Query' action, returning the 'String' representation of the query.
 createConstructQuery :: Query ConstructQuery -> String
-createConstructQuery q = trace (execQuery specifyType qshow) execQuery specifyType qshow
+createConstructQuery q = execQuery specifyType qshow
     where specifyType :: Query ()
           specifyType = do
            query <- q
            modify $ \s -> s { constructTriples = queryConstructs query, queryType = ConstructType }
 
+-- |Execute a 'Ask Query' action, returning the 'String' representation of the query.
+createAskQuery :: Query AskQuery -> String
+createAskQuery q = execQuery specifyType qshow
+    where specifyType :: Query ()
+          specifyType = do
+           query <- q
+           modify $ \s -> s { askTriples = queryAsk query, queryType = AskType }
+
+-- |Execute a 'Ask Query' action, returning the 'String' representation of the query.
+createDescribeQuery :: Query DescribeQuery -> String
+createDescribeQuery q = execQuery specifyType qshow
+    where specifyType :: Query ()
+          specifyType = do
+           query <- q
+           modify $ \s -> s { describeURI = Just (queryDescribe query), queryType = DescribeType }
 
 -- Manipulate data within monad
 
@@ -124,6 +144,17 @@ constructTriple a b c = do
     let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
     modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
     return t
+
+askTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+askTriple a b c = do
+    let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+    modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
+    return t
+
+describeIRI :: IRIRef -> Query IRIRef
+describeIRI newIri = do
+    modify $ \s -> s { describeURI = Just newIri }
+    return newIri
 
 
 -- |Add optional constraints on matches. Variable bindings within the optional
@@ -339,6 +370,8 @@ queryData = QueryData
     , queryType  = TypeNotSet
     , pattern    = GroupGraphPattern []
     , constructTriples = []
+    , askTriples = []
+    , describeURI = Nothing
     , duplicates = NoLimits
     , ordering   = []
     }
@@ -418,20 +451,29 @@ data QueryData = QueryData
     , queryType  :: QueryType
     , pattern    :: GroupGraphPattern
     , constructTriples :: [Pattern] -- Triple
+    , askTriples :: [Pattern]
+    , describeURI :: Maybe IRIRef
     , duplicates :: Duplicates
     , ordering   :: [OrderBy]
     }
 
 
-data QueryType = SelectType | ConstructType | TypeNotSet
+data QueryType = SelectType | ConstructType | AskType | DescribeType | TypeNotSet
 
-data QueryForm = SelectForm QueryData | ConstructForm QueryData
+data QueryForm = SelectForm QueryData | ConstructForm QueryData | AskForm QueryData | DescribeForm QueryData
 
 data ConstructQuery = ConstructQuery
     { queryConstructs :: [Pattern] }
 
+data AskQuery = AskQuery
+    { queryAsk :: [Pattern] }
+
 data SelectQuery = SelectQuery
     { queryVars :: [Variable] }
+
+data DescribeQuery = DescribeQuery
+    { queryDescribe :: IRIRef }
+
 
 -- QueryShow instances
 instance (QueryShow a) => QueryShow [a] where
@@ -452,11 +494,16 @@ instance QueryShow IRIRef where
   qshow (IRIRef r) = "<" ++ r ++ ">"
   qshow (PrefixedName (Prefix pre _) s) = pre ++ ":" ++ s
 
+instance QueryShow (Maybe IRIRef) where
+  qshow (Just r) = qshow r
+  qshow Nothing = ""
+
 instance QueryShow RDFLiteral where
   -- Always use triple-quoted strings to avoid having to deal with quote-escaping
   qshow (RDFLiteral s)           = "\"\"\"" ++ s ++ "\"\"\""
   qshow (RDFLiteralLang s lang')  = "\"\"\"" ++ s ++ "\"\"\"@" ++ lang'
   qshow (RDFLiteralIRIRef s ref) = "\"\"\"" ++ s ++ "\"\"\"^^" ++ qshow ref
+
 
 instance QueryShow GraphTerm where
   qshow (IRIRefTerm ref)           = qshow ref
@@ -510,8 +557,8 @@ instance QueryShow Expr where
           qshow' (BuiltinCall f es) = qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
 
 instance QueryShow Pattern where
-  qshow (Triple a b c) = qshow [a, b, c] ++ "."
-  qshow (Filter e)     = "FILTER " ++ qshow e ++ "."
+  qshow (Triple a b c) = qshow [a, b, c] ++ " ."
+  qshow (Filter e)     = "FILTER " ++ qshow e ++ " ."
 
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
@@ -533,15 +580,36 @@ instance QueryShow QueryForm where
 
   qshow (ConstructForm qd) = "CONSTRUCT { " ++ qshow (constructTriples qd) ++ " }"
 
+  qshow (AskForm qd) = "ASK { " ++ qshow (askTriples qd) ++ " }"
+
+  qshow (DescribeForm qd) = "DESCRIBE " ++ qshow (describeURI qd)
 
 instance QueryShow QueryData where
-  qshow qd = let showFormedQuery = case queryType qd of
-                  SelectType -> qshow (SelectForm qd)
-                  ConstructType -> qshow (ConstructForm qd)
-             in unwords $ [ qshow (prefixes qd)
-                               , showFormedQuery
-                               , "WHERE"
-                               , qshow (pattern qd)
-                               ] ++ case ordering qd of
+  qshow qd = let whereStmt = unwords $
+                              ["WHERE"
+                              , qshow (pattern qd)
+                              ] ++ case ordering qd of
                                       [] -> []
                                       os -> "ORDER BY" : map qshow os
+
+                 query = case queryType qd of
+                  SelectType -> 
+                   unwords [ qshow (prefixes qd)
+                           , qshow (SelectForm qd)
+                           , whereStmt
+                           ]
+                  ConstructType -> 
+                   unwords [ qshow (prefixes qd)
+                           , qshow (ConstructForm qd)
+                           , whereStmt
+                           ]
+                  DescribeType -> 
+                   unwords [ qshow (prefixes qd)
+                           , qshow (DescribeForm qd)
+                           , whereStmt
+                           ]
+                  AskType -> 
+                   unwords [ qshow (prefixes qd)
+                           , qshow (AskForm qd)
+                           ]
+             in query
