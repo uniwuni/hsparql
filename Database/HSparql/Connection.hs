@@ -13,7 +13,6 @@ import Data.Maybe
 import Network.HTTP
 import Text.XML.Light
 import Database.HSparql.QueryGenerator
-import Data.RDF.MGraph
 import Text.RDF.RDF4H.TurtleParser
 import Data.RDF
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -95,7 +94,7 @@ askQuery ep q = do
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-constructQuery :: Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO MGraph
+constructQuery :: forall rdf. (RDF rdf) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO rdf
 constructQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
     rdfGraph <- httpCallForRdf uri
@@ -106,7 +105,7 @@ constructQuery ep q = do
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-describeQuery :: Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO MGraph
+describeQuery :: forall rdf. (RDF rdf) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO rdf
 describeQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
     rdfGraph <- httpCallForRdf uri

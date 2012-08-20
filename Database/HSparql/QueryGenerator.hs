@@ -1,4 +1,3 @@
-{-# LANGUAGE ExtendedDefaultRules, FlexibleInstances, Rank2Types #-}
 
 -- |The query generator DSL for SPARQL, used when connecting to remote
 --  endpoints.
