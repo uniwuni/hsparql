@@ -127,5 +127,4 @@ httpCallForRdf uri = do
                           , rqBody = ""
                           }
  response <- simpleHTTP request >>= getResponseBody
- writeFile "test11.ttl" response
  return $ parseString (TurtleParser Nothing Nothing) (E.decodeUtf8 (B.pack response))
