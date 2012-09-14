@@ -15,7 +15,9 @@ import Text.XML.Light
 import Database.HSparql.QueryGenerator
 import Text.RDF.RDF4H.TurtleParser
 import Data.RDF
-import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
+import qualified Data.ByteString.Char8 as B
 
 import Network.URI hiding (URI)
 
@@ -118,11 +120,12 @@ describeQuery ep q = do
 httpCallForRdf :: RDF rdf => String -> IO (Either ParseFailure rdf)
 httpCallForRdf uri = do
  let h1 = mkHeader HdrUserAgent "hsparql-client"
-     h2 = mkHeader HdrAccept "text/rdf+n3"
+     h2 = mkHeader HdrAccept "text/turtle"
      request = Request { rqURI = fromJust $ parseURI uri
                           , rqHeaders = [h1,h2]
                           , rqMethod = GET
                           , rqBody = ""
                           }
  response <- simpleHTTP request >>= getResponseBody
- return $ parseString (TurtleParser Nothing Nothing) (B.pack response)
+ writeFile "test11.ttl" response
+ return $ parseString (TurtleParser Nothing Nothing) (E.decodeUtf8 (B.pack response))
