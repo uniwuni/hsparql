@@ -39,6 +39,7 @@ test-suite test-hsparql
   build-depends: hsparql
                  , rdf4h
                  , base
+                 , text
                  , Cabal >= 1.9.2
                  , http-types
                  -- , QuickCheck

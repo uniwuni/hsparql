@@ -4,10 +4,11 @@ module Database.HSparql.ConnectionTest ( testSuite ) where
 
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit
-
 import Test.HUnit
 
+import qualified Data.Text as T
 import qualified Data.RDF as RDF
+
 import Database.HSparql.Connection
 import Database.HSparql.QueryGenerator
 
@@ -18,9 +19,9 @@ testSuite = [
   ]
 
 test_selectQuery =
-  let expectedBVars = Just [ [ Bound $ RDF.lnode $ RDF.plainLL (RDF.s2b "Kazehakase") (RDF.s2b "en") ]
-                           , [ Bound $ RDF.lnode $ RDF.plainLL (RDF.s2b "Netscape Browser") (RDF.s2b "en") ]
-                           , [ Bound $ RDF.lnode $ RDF.plainLL (RDF.s2b "SlimBrowser") (RDF.s2b "en") ]
+  let expectedBVars = Just [ [ Bound $ RDF.lnode $ RDF.plainLL (T.pack "Kazehakase") (T.pack "en") ]
+                           , [ Bound $ RDF.lnode $ RDF.plainLL (T.pack "Netscape Browser") (T.pack "en") ]
+                           , [ Bound $ RDF.lnode $ RDF.plainLL (T.pack "SlimBrowser") (T.pack "en") ]
                            ]
   in do
     bvars <- selectQuery endPoint query

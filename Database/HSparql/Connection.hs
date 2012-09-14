@@ -54,12 +54,12 @@ structureContent s =
           value :: Element -> BindingValue
           value e =
             case qName (elName e) of
-              "uri"     -> Bound $ Data.RDF.unode $ strContent e
+              "uri"     -> Bound $ Data.RDF.unode $ T.pack $ strContent e
               "literal" -> case findAttr (unqual "datatype") e of
-                             Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (strContent e) dt
+                             Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (T.pack $ strContent e) (T.pack $ dt)
                              Nothing -> case findAttr langAttr e of
-                                          Just lang -> Bound $ Data.RDF.lnode $ Data.RDF.plainLL (strContent e) lang
-                                          Nothing   -> Bound $ Data.RDF.lnode $ Data.RDF.plainL (strContent e)
+                                          Just lang -> Bound $ Data.RDF.lnode $ Data.RDF.plainLL (T.pack $ strContent e) (T.pack $ lang)
+                                          Nothing   -> Bound $ Data.RDF.lnode $ Data.RDF.plainL (T.pack $ strContent e)
               -- TODO: what about blank nodes?
               _         -> Unbound
 
