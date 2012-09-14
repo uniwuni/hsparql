@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
 
 module Database.HSparql.ConnectionTest ( testSuite ) where
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -13,7 +12,7 @@ import Test.Framework
 import Database.HSparql.ConnectionTest
 
 main =
-  do forkIO $ startServer
+  do forkIO startServer
      ropts <- interpretArgsOrExit []
      defaultMainWithOpts tests ropts
      where tests = Database.HSparql.ConnectionTest.testSuite

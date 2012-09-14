@@ -11,12 +11,12 @@ import Data.RDF.TriplesGraph
 selectExample :: IO ()
 selectExample = do
   (Just s) <- selectQuery "http://dbpedia.org/sparql" simpleSelect
-  putStrLn . show $ s
+  print s
 
 askExample :: IO ()
 askExample = do
   res <- askQuery "http://dbpedia.org/sparql" simpleAsk
-  putStrLn $ "result: " ++ (show (res::Bool))
+  putStrLn $ "result: " ++ show (res::Bool)
 
 describeExample :: IO ()
 describeExample = do

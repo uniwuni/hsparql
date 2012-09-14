@@ -1,6 +1,6 @@
 Name:          hsparql
 Homepage:      https://github.com/robstewart57/hsparql
-Version:       0.1.5
+Version:       0.2.0
 Synopsis:      A SPARQL query generator and DSL, and a client to query a SPARQL server.
 Category:      Database
 Description:
@@ -42,14 +42,13 @@ test-suite test-hsparql
                  , text
                  , Cabal >= 1.9.2
                  , http-types
-                 -- , QuickCheck
                  , HUnit
                  , test-framework
                  , test-framework-hunit
-                 -- , test-framework-quickcheck2 >= 0.2.12.2
                  , wai
                  , warp
   hs-source-dirs: Database, tests
+  extensions:  OverloadedStrings, FlexibleInstances
 
 source-repository head
   type:     git

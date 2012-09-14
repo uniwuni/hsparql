@@ -56,9 +56,9 @@ structureContent s =
             case qName (elName e) of
               "uri"     -> Bound $ Data.RDF.unode $ T.pack $ strContent e
               "literal" -> case findAttr (unqual "datatype") e of
-                             Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (T.pack $ strContent e) (T.pack $ dt)
+                             Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (T.pack $ strContent e) (T.pack dt)
                              Nothing -> case findAttr langAttr e of
-                                          Just lang -> Bound $ Data.RDF.lnode $ Data.RDF.plainLL (T.pack $ strContent e) (T.pack $ lang)
+                                          Just lang -> Bound $ Data.RDF.lnode $ Data.RDF.plainLL (T.pack $ strContent e) (T.pack lang)
                                           Nothing   -> Bound $ Data.RDF.lnode $ Data.RDF.plainL (T.pack $ strContent e)
               -- TODO: what about blank nodes?
               _         -> Unbound
