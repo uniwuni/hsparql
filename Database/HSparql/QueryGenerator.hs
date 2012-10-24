@@ -498,11 +498,9 @@ instance QueryShow (Maybe IRIRef) where
   qshow Nothing = ""
 
 instance QueryShow RDFLiteral where
-  -- Always use triple-quoted strings to avoid having to deal with quote-escaping
-  qshow (RDFLiteral s)           = "\"\"\"" ++ s ++ "\"\"\""
-  qshow (RDFLiteralLang s lang')  = "\"\"\"" ++ s ++ "\"\"\"@" ++ lang'
-  qshow (RDFLiteralIRIRef s ref) = "\"\"\"" ++ s ++ "\"\"\"^^" ++ qshow ref
-
+  qshow (RDFLiteral s)           = "\"" ++ s ++ "\""
+  qshow (RDFLiteralLang s lang')  = "\"" ++ s ++ "\"@" ++ lang'
+  qshow (RDFLiteralIRIRef s ref) = "\"" ++ s ++ "\"^^" ++ qshow ref
 
 instance QueryShow GraphTerm where
   qshow (IRIRefTerm ref)           = qshow ref
