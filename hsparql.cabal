@@ -46,7 +46,6 @@ test-suite test-hsparql
                  , HUnit
                  , test-framework
                  , test-framework-hunit
-                 , MissingH
                  , wai
                  , warp
   hs-source-dirs: Database, tests
