@@ -29,6 +29,7 @@ library
                , xml
                , rdf4h >= 1.0.0
                , bytestring
+               , MissingH
                , network
                , text
   extensions:  RankNTypes FlexibleInstances
@@ -45,6 +46,7 @@ test-suite test-hsparql
                  , HUnit
                  , test-framework
                  , test-framework-hunit
+                 , MissingH
                  , wai
                  , warp
   hs-source-dirs: Database, tests
