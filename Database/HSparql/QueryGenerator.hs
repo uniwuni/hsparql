@@ -508,6 +508,7 @@ instance QueryShow GraphTerm where
   qshow (RDFLiteralTerm s)         = qshow s
   qshow (BooleanLiteralTerm True)  = show "true"
   qshow (BooleanLiteralTerm False) = show "false"
+  qshow (NumericLiteralTerm i)     = show i
 
 instance QueryShow VarOrTerm where
   qshow (Var  v) = qshow v
@@ -616,4 +617,4 @@ instance QueryShow QueryData where
 -- Internal utilities
 
 escapeQuotes :: String -> String
-escapeQuotes s = replace "\"" "\\\"" s
+escapeQuotes = replace "\"" "\\\""
