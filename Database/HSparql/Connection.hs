@@ -78,7 +78,12 @@ parseAsk s
 selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
 selectQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
-        request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
+        h1 = mkHeader HdrAccept "application/sparql-results+xml"
+        request = Request { rqURI = fromJust $ parseURI uri
+                          , rqHeaders = [h1]
+                          , rqMethod = GET
+                          , rqBody = ""
+                          }
     response <- simpleHTTP request >>= getResponseBody
     return $ structureContent response
 
@@ -86,7 +91,7 @@ selectQuery ep q = do
 --  'Variable's in the 'SelectQuery' action.
 askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
 askQuery ep q = do
-    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
+    let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
         request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
     response <- simpleHTTP request >>= getResponseBody
     return $ parseAsk response
