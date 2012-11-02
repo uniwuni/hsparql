@@ -79,8 +79,9 @@ selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (
 selectQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
         h1 = mkHeader HdrAccept "application/sparql-results+xml"
+        h2 = mkHeader HdrUserAgent "hsparql-client"
         request = Request { rqURI = fromJust $ parseURI uri
-                          , rqHeaders = [h1]
+                          , rqHeaders = [h1,h2]
                           , rqMethod = GET
                           , rqBody = ""
                           }
