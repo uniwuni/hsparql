@@ -1,4 +1,3 @@
-
 -- |The query generator DSL for SPARQL, used when connecting to remote
 --  endpoints.
 module Database.HSparql.QueryGenerator
@@ -10,7 +9,7 @@ module Database.HSparql.QueryGenerator
     -- * Query Actions
     , prefix
     , var
-    , triple
+    , Database.HSparql.QueryGenerator.triple
     , constructTriple
     , askTriple
     , describeIRI
@@ -29,7 +28,6 @@ module Database.HSparql.QueryGenerator
 
     -- ** Auxiliary
     , (.:.)
-    , iriRef
 
     -- * Term Manipulation
 
@@ -71,7 +69,9 @@ where
 
 import Control.Monad.State
 import Data.List (intercalate)
-import Data.String.Utils
+import Data.String.Utils -- TODO: is it required anymore?
+import qualified Data.Text as T
+import Data.RDF
 
 
 -- State monads
@@ -118,10 +118,10 @@ createDescribeQuery q = execQuery specifyType qshow
 -- Manipulate data within monad
 
 -- |Add a prefix to the query, given an IRI reference, and return it.
-prefix :: String -> IRIRef -> Query Prefix
-prefix pre ref = do -- n <- gets prefixIdx
+prefix :: String -> Node -> Query Prefix
+prefix pre ref = do
                 let p = Prefix pre ref
-                modify $ \s -> s { {- prefixIdx = n + 1, -} prefixes = p : prefixes s }
+                modify $ \s -> s { prefixes = p : prefixes s }
                 return p
 
 -- |Create and return a variable to the query, usable in later expressions.
@@ -134,24 +134,24 @@ var = do n <- gets varsIdx
 --  triple, or for which the variables can be bound.
 triple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 triple a b c = do
-    let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
     modify $ \s -> s { pattern = appendPattern t (pattern s) }
     return t
 
 
 constructTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 constructTriple a b c = do
-    let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
     modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
     return t
 
 askTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 askTriple a b c = do
-    let t = Triple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
     modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
     return t
 
-describeIRI :: IRIRef -> Query IRIRef
+describeIRI :: Node -> Query Node
 describeIRI newIri = do
     modify $ \s -> s { describeURI = Just newIri }
     return newIri
@@ -187,14 +187,9 @@ filterExpr e = do
 
 -- Random auxiliary
 
--- |Form a 'PrefixedName' 'IRIRef', with the 'Prefix' and reference name.
-(.:.) :: Prefix -> String -> IRIRef
-(.:.) = PrefixedName
-
--- |Create an 'IRIRef' with an absolute reference to the address at which it is
---  located.
-iriRef :: String -> IRIRef
-iriRef = IRIRef
+-- |Form a 'Node', with the 'Prefix' and reference name.
+(.:.) :: Prefix -> String -> Node
+(.:.) (Prefix _ (UNode n)) s = unode $ T.append n (T.pack s)
 
 -- Duplicate handling
 
@@ -235,7 +230,7 @@ class TermLike a where
 instance TermLike Variable where
   varOrTerm = Var
 
-instance TermLike IRIRef where
+instance TermLike Node where
   varOrTerm = Term . IRIRefTerm
 
 instance TermLike Expr where
@@ -246,14 +241,15 @@ instance TermLike Integer where
   varOrTerm = Term . NumericLiteralTerm
   expr = NumericExpr . NumericLiteralExpr
 
-instance TermLike [Char] where
-  varOrTerm = Term . RDFLiteralTerm . RDFLiteral
+-- TODO: switch String to Text?
+instance TermLike String where
+  varOrTerm = Term . RDFLiteralTerm . plainL . T.pack
 
-instance TermLike ([Char], [Char]) where
-  varOrTerm (s, lang') = Term . RDFLiteralTerm $ RDFLiteralLang s lang'
+instance TermLike (String, String) where
+  varOrTerm (s, lang') = Term . RDFLiteralTerm $ plainLL (T.pack s) (T.pack lang')
 
-instance TermLike ([Char], IRIRef) where
-  varOrTerm (s, ref) = Term . RDFLiteralTerm $ RDFLiteralIRIRef s ref
+instance TermLike (String, Node) where
+  varOrTerm (s, (UNode ref)) = Term . RDFLiteralTerm $ typedL (T.pack s) ref
 
 instance TermLike Bool where
   varOrTerm = Term . BooleanLiteralTerm
@@ -363,8 +359,7 @@ regex = builtinFunc2 RegexFunc
 -- Default QueryData
 queryData :: QueryData
 queryData = QueryData
-    { {- prefixIdx  = 0
-    , -} prefixes   = []
+    { prefixes   = []
     , varsIdx    = 0
     , vars       = []
     , queryType  = TypeNotSet
@@ -386,22 +381,13 @@ class QueryShow a where
 
 data Duplicates = NoLimits | Distinct | Reduced
 
--- data Prefix = Prefix Int IRIRef
-data Prefix = Prefix String IRIRef
+data Prefix = Prefix String Node
 
 data Variable = Variable Int
 
-
-data IRIRef = IRIRef String
-            | PrefixedName Prefix String 
-
-data RDFLiteral = RDFLiteral String
-                | RDFLiteralLang String String
-                | RDFLiteralIRIRef String IRIRef
-
 -- Should support numeric literals, too
-data GraphTerm = IRIRefTerm IRIRef
-               | RDFLiteralTerm RDFLiteral
+data GraphTerm = IRIRefTerm Node
+               | RDFLiteralTerm LValue
                | NumericLiteralTerm Integer
                | BooleanLiteralTerm Bool
 
@@ -427,7 +413,7 @@ data Expr = OrExpr [Expr]
           | BuiltinCall Function [Expr]
           | VarOrTermExpr VarOrTerm
 
-data Pattern = Triple VarOrTerm VarOrTerm VarOrTerm
+data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Filter Expr
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
@@ -450,9 +436,9 @@ data QueryData = QueryData
     , vars       :: [Variable]
     , queryType  :: QueryType
     , pattern    :: GroupGraphPattern
-    , constructTriples :: [Pattern] -- Triple
+    , constructTriples :: [Pattern] -- QTriple
     , askTriples :: [Pattern]
-    , describeURI :: Maybe IRIRef
+    , describeURI :: Maybe Node
     , duplicates :: Duplicates
     , ordering   :: [OrderBy]
     }
@@ -472,7 +458,7 @@ data SelectQuery = SelectQuery
     { queryVars :: [Variable] }
 
 data DescribeQuery = DescribeQuery
-    { queryDescribe :: IRIRef }
+    { queryDescribe :: Node }
 
 
 -- QueryShow instances
@@ -490,18 +476,17 @@ instance QueryShow Prefix where
 instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
 
-instance QueryShow IRIRef where
-  qshow (IRIRef r) = "<" ++ r ++ ">"
-  qshow (PrefixedName (Prefix pre _) s) = pre ++ ":" ++ s
+instance QueryShow Node where
+  qshow (UNode r) = "<" ++ (T.unpack r) ++ ">"
 
-instance QueryShow (Maybe IRIRef) where
+instance QueryShow (Maybe Node) where
   qshow (Just r) = qshow r
   qshow Nothing = ""
 
-instance QueryShow RDFLiteral where
-  qshow (RDFLiteral s)           = "\"" ++ escapeQuotes s ++ "\""
-  qshow (RDFLiteralLang s lang')  = "\"" ++ escapeQuotes s ++ "\"@" ++ lang'
-  qshow (RDFLiteralIRIRef s ref) = "\"" ++ escapeQuotes s ++ "\"^^" ++ qshow ref
+instance QueryShow LValue where
+  qshow (PlainL s)        = "\"" ++ escapeQuotes (T.unpack s) ++ "\""
+  qshow (PlainLL s lang') = "\"" ++ escapeQuotes (T.unpack s) ++ "\"@" ++ (T.unpack lang')
+  qshow (TypedL s ref)    = "\"" ++ escapeQuotes (T.unpack s) ++ "\"^^" ++ (T.unpack ref)
 
 instance QueryShow GraphTerm where
   qshow (IRIRefTerm ref)           = qshow ref
@@ -549,13 +534,13 @@ instance QueryShow Expr where
   qshow e = "(" ++ qshow' e ++ ")"
     where qshow' (OrExpr es)        = intercalate " || " $ map qshow es
           qshow' (AndExpr es)       = intercalate " && " $ map qshow es
-          qshow' (NegatedExpr e')    = '!' : qshow e'
+          qshow' (NegatedExpr e')   = '!' : qshow e'
           qshow' (RelationalExpr rel e1 e2) = qshow e1 ++ qshow rel ++ qshow e2
-          qshow' (NumericExpr e')    = qshow e'
+          qshow' (NumericExpr e')   = qshow e'
           qshow' (BuiltinCall f es) = qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
 
 instance QueryShow Pattern where
-  qshow (Triple a b c) = qshow [a, b, c] ++ " ."
+  qshow (QTriple a b c) = qshow [a, b, c] ++ " ."
   qshow (Filter e)     = "FILTER " ++ qshow e ++ " ."
 
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
