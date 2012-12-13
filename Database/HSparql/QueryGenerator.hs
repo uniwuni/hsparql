@@ -69,7 +69,6 @@ where
 
 import Control.Monad.State
 import Data.List (intercalate)
-import Data.String.Utils -- TODO: is it required anymore?
 import qualified Data.Text as T
 import Data.RDF
 
@@ -483,9 +482,9 @@ instance QueryShow (Maybe Node) where
   qshow Nothing = ""
 
 instance QueryShow LValue where
-  qshow (PlainL s)        = "\"" ++ escapeQuotes (T.unpack s) ++ "\""
-  qshow (PlainLL s lang') = "\"" ++ escapeQuotes (T.unpack s) ++ "\"@" ++ (T.unpack lang')
-  qshow (TypedL s ref)    = "\"" ++ escapeQuotes (T.unpack s) ++ "\"^^" ++ (T.unpack ref)
+  qshow (PlainL s)        = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\""
+  qshow (PlainLL s lang') = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"@" ++ (T.unpack lang')
+  qshow (TypedL s ref)    = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"^^" ++ (T.unpack ref)
 
 instance QueryShow GraphTerm where
   qshow (IRIRefTerm ref)           = qshow ref
@@ -599,5 +598,5 @@ instance QueryShow QueryData where
 
 -- Internal utilities
 
-escapeQuotes :: String -> String
-escapeQuotes s = replace "\"" "\\\"" s
+escapeQuotes :: T.Text -> T.Text
+escapeQuotes s = T.replace "\"" "\\\"" s
