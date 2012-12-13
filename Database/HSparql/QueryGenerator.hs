@@ -118,7 +118,7 @@ createDescribeQuery q = execQuery specifyType qshow
 -- Manipulate data within monad
 
 -- |Add a prefix to the query, given an IRI reference, and return it.
-prefix :: String -> Node -> Query Prefix
+prefix :: T.Text -> Node -> Query Prefix
 prefix pre ref = do
                 let p = Prefix pre ref
                 modify $ \s -> s { prefixes = p : prefixes s }
@@ -189,7 +189,7 @@ filterExpr e = do
 
 -- |Form a 'Node', with the 'Prefix' and reference name.
 (.:.) :: Prefix -> T.Text -> Node
-(.:.) (Prefix _ (UNode n)) s = unode $ T.append n s
+(.:.) (Prefix p _) s = unode $ T.append p $ T.append ":" s
 
 -- Duplicate handling
 
@@ -380,7 +380,7 @@ class QueryShow a where
 
 data Duplicates = NoLimits | Distinct | Reduced
 
-data Prefix = Prefix String Node
+data Prefix = Prefix T.Text Node
 
 data Variable = Variable Int
 
@@ -470,7 +470,7 @@ instance QueryShow Duplicates where
   qshow Reduced  = "REDUCED"
 
 instance QueryShow Prefix where
-  qshow (Prefix pre ref) = "PREFIX " ++ pre ++ ": " ++ qshow ref
+  qshow (Prefix pre ref) = "PREFIX " ++ (T.unpack pre) ++ ": " ++ qshow ref
 
 instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
