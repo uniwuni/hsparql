@@ -188,8 +188,8 @@ filterExpr e = do
 -- Random auxiliary
 
 -- |Form a 'Node', with the 'Prefix' and reference name.
-(.:.) :: Prefix -> String -> Node
-(.:.) (Prefix _ (UNode n)) s = unode $ T.append n (T.pack s)
+(.:.) :: Prefix -> T.Text -> Node
+(.:.) (Prefix _ (UNode n)) s = unode $ T.append n s
 
 -- Duplicate handling
 
@@ -241,15 +241,14 @@ instance TermLike Integer where
   varOrTerm = Term . NumericLiteralTerm
   expr = NumericExpr . NumericLiteralExpr
 
--- TODO: switch String to Text?
-instance TermLike String where
-  varOrTerm = Term . RDFLiteralTerm . plainL . T.pack
+instance TermLike T.Text where
+  varOrTerm = Term . RDFLiteralTerm . plainL
 
-instance TermLike (String, String) where
-  varOrTerm (s, lang') = Term . RDFLiteralTerm $ plainLL (T.pack s) (T.pack lang')
+instance TermLike (T.Text, T.Text) where
+  varOrTerm (s, lang') = Term . RDFLiteralTerm $ plainLL s lang'
 
-instance TermLike (String, Node) where
-  varOrTerm (s, (UNode ref)) = Term . RDFLiteralTerm $ typedL (T.pack s) ref
+instance TermLike (T.Text, Node) where
+  varOrTerm (s, (UNode ref)) = Term . RDFLiteralTerm $ typedL s ref
 
 instance TermLike Bool where
   varOrTerm = Term . BooleanLiteralTerm

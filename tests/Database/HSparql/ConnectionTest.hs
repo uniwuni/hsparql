@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 module Database.HSparql.ConnectionTest ( testSuite ) where
 
 import Test.Framework (testGroup)
@@ -24,9 +22,9 @@ testSuite = [
   ]
 
 test_selectQuery =
-  let expectedBVars = Just [ [ Bound $ RDF.lnode $ RDF.plainLL (T.pack "Kazehakase") (T.pack "en") ]
-                           , [ Bound $ RDF.lnode $ RDF.plainLL (T.pack "Netscape Browser") (T.pack "en") ]
-                           , [ Bound $ RDF.lnode $ RDF.plainLL (T.pack "SlimBrowser") (T.pack "en") ]
+  let expectedBVars = Just [ [ Bound $ RDF.lnode $ RDF.plainLL "Kazehakase" "en" ]
+                           , [ Bound $ RDF.lnode $ RDF.plainLL "Netscape Browser" "en" ]
+                           , [ Bound $ RDF.lnode $ RDF.plainLL "SlimBrowser" "en" ]
                            ]
   in do
     bvars <- selectQuery endPoint query
@@ -34,9 +32,9 @@ test_selectQuery =
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbprop" (iriRef "http://dbpedia.org/resource/")
-              dbpprop  <- prefix "dbpedia" (iriRef "http://dbpedia.org/property/")
-              foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+              resource <- prefix "dbprop" (RDF.unode "http://dbpedia.org/resource/")
+              dbpprop  <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/property/")
+              foaf     <- prefix "foaf" (RDF.unode "http://xmlns.com/foaf/0.1/")
 
               x    <- var
               name <- var
@@ -52,8 +50,8 @@ test_askQuery = do
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
-              dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
+              resource <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/resource/")
+              dbprop  <- prefix "dbprop" (RDF.unode "http://dbpedia.org/property/")
 
               x <- var
               ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
@@ -63,19 +61,19 @@ test_askQuery = do
 test_constructQuery =
   let expectedGraph :: G.TriplesGraph
       expectedGraph = G.mkRdf expectedTriples Nothing (RDF.PrefixMappings Map.empty)
-      expectedTriples = [ RDF.Triple (RDF.unode $ T.pack "http://dbpedia.org/resource/Kazehakase")
-                                     (RDF.unode $ T.pack "http://www.example.com/hasName")
-                                     (RDF.lnode $ RDF.plainLL (T.pack "Kazehakase") (T.pack "en")) ]
+      expectedTriples = [ RDF.Triple (RDF.unode "http://dbpedia.org/resource/Kazehakase")
+                                     (RDF.unode "http://www.example.com/hasName")
+                                     (RDF.lnode $ RDF.plainLL "Kazehakase" "en") ]
   in do
     graph <- constructQuery endPoint query :: IO G.TriplesGraph
     assertBool "RDF does not include the constructed triple" $ RDF.isIsomorphic expectedGraph graph
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
-              dbpprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
-              foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
-              example  <- prefix "example" (iriRef "http://www.example.com/")
+              resource <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/resource/")
+              dbpprop  <- prefix "dbprop" (RDF.unode "http://dbpedia.org/property/")
+              foaf     <- prefix "foaf" (RDF.unode "http://xmlns.com/foaf/0.1/")
+              example  <- prefix "example" (RDF.unode "http://www.example.com/")
 
               x    <- var
               name <- var
@@ -88,13 +86,13 @@ test_constructQuery =
               return ConstructQuery { queryConstructs = [construct] }
 
 test_describeQuery =
-  let expectedNode = RDF.unode $ T.pack "http://dbpedia.org/resource/Edinburgh"
+  let expectedNode = RDF.unode "http://dbpedia.org/resource/Edinburgh"
   in do
     graph <- describeQuery endPoint query :: IO G.TriplesGraph
     assertBool "RDF does not include the required node" $ RDF.rdfContainsNode graph expectedNode
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+              resource <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/resource/")
               uri <- describeIRI (resource .:. "Edinburgh")
               return DescribeQuery { queryDescribe = uri }
