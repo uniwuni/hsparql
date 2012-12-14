@@ -28,6 +28,7 @@ module Database.HSparql.QueryGenerator
 
     -- ** Auxiliary
     , (.:.)
+    , iriRef
 
     -- * Term Manipulation
 
@@ -117,7 +118,7 @@ createDescribeQuery q = execQuery specifyType qshow
 -- Manipulate data within monad
 
 -- |Add a prefix to the query, given an IRI reference, and return it.
-prefix :: T.Text -> Node -> Query Prefix
+prefix :: T.Text -> IRIRef -> Query Prefix
 prefix pre ref = do
                 let p = Prefix pre ref
                 modify $ \s -> s { prefixes = p : prefixes s }
@@ -150,7 +151,7 @@ askTriple a b c = do
     modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
     return t
 
-describeIRI :: Node -> Query Node
+describeIRI :: IRIRef -> Query IRIRef
 describeIRI newIri = do
     modify $ \s -> s { describeURI = Just newIri }
     return newIri
@@ -187,8 +188,8 @@ filterExpr e = do
 -- Random auxiliary
 
 -- |Form a 'Node', with the 'Prefix' and reference name.
-(.:.) :: Prefix -> T.Text -> Node
-(.:.) (Prefix p _) s = unode $ T.append p $ T.append ":" s
+(.:.) :: Prefix -> T.Text -> IRIRef
+(.:.) = PrefixedName
 
 -- Duplicate handling
 
@@ -229,7 +230,7 @@ class TermLike a where
 instance TermLike Variable where
   varOrTerm = Var
 
-instance TermLike Node where
+instance TermLike IRIRef where
   varOrTerm = Term . IRIRefTerm
 
 instance TermLike Expr where
@@ -246,8 +247,8 @@ instance TermLike T.Text where
 instance TermLike (T.Text, T.Text) where
   varOrTerm (s, lang') = Term . RDFLiteralTerm $ plainLL s lang'
 
-instance TermLike (T.Text, Node) where
-  varOrTerm (s, (UNode ref)) = Term . RDFLiteralTerm $ typedL s ref
+instance TermLike (T.Text, IRIRef) where
+  varOrTerm (s, ref) = Term . RDFLiteralTerm $ typedL s (getFQN ref)
 
 instance TermLike Bool where
   varOrTerm = Term . BooleanLiteralTerm
@@ -379,12 +380,22 @@ class QueryShow a where
 
 data Duplicates = NoLimits | Distinct | Reduced
 
-data Prefix = Prefix T.Text Node
+data Prefix = Prefix T.Text IRIRef
 
 data Variable = Variable Int
 
+data IRIRef = IRIRef Node
+            | PrefixedName Prefix T.Text
+
+iriRef :: T.Text -> IRIRef
+iriRef uri = IRIRef $ unode uri
+
+getFQN :: IRIRef -> T.Text
+getFQN (IRIRef (UNode n)) = n
+getFQN (PrefixedName (Prefix _ n) s) = T.append (getFQN n) s
+
 -- Should support numeric literals, too
-data GraphTerm = IRIRefTerm Node
+data GraphTerm = IRIRefTerm IRIRef
                | RDFLiteralTerm LValue
                | NumericLiteralTerm Integer
                | BooleanLiteralTerm Bool
@@ -436,7 +447,7 @@ data QueryData = QueryData
     , pattern    :: GroupGraphPattern
     , constructTriples :: [Pattern] -- QTriple
     , askTriples :: [Pattern]
-    , describeURI :: Maybe Node
+    , describeURI :: Maybe IRIRef
     , duplicates :: Duplicates
     , ordering   :: [OrderBy]
     }
@@ -456,7 +467,7 @@ data SelectQuery = SelectQuery
     { queryVars :: [Variable] }
 
 data DescribeQuery = DescribeQuery
-    { queryDescribe :: Node }
+    { queryDescribe :: IRIRef }
 
 
 -- QueryShow instances
@@ -474,10 +485,11 @@ instance QueryShow Prefix where
 instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
 
-instance QueryShow Node where
-  qshow (UNode r) = "<" ++ (T.unpack r) ++ ">"
+instance QueryShow IRIRef where
+  qshow (IRIRef (UNode r)) = "<" ++ (T.unpack r) ++ ">"
+  qshow (PrefixedName (Prefix pre _) s) = (T.unpack pre) ++ ":" ++ (T.unpack s)
 
-instance QueryShow (Maybe Node) where
+instance QueryShow (Maybe IRIRef) where
   qshow (Just r) = qshow r
   qshow Nothing = ""
 

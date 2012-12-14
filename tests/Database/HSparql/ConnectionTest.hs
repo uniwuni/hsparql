@@ -32,9 +32,9 @@ test_selectQuery =
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbprop" (RDF.unode "http://dbpedia.org/resource/")
-              dbpprop  <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/property/")
-              foaf     <- prefix "foaf" (RDF.unode "http://xmlns.com/foaf/0.1/")
+              resource <- prefix "dbprop" (iriRef "http://dbpedia.org/resource/")
+              dbpprop  <- prefix "dbpedia" (iriRef "http://dbpedia.org/property/")
+              foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
 
               x    <- var
               name <- var
@@ -50,8 +50,8 @@ test_askQuery = do
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/resource/")
-              dbprop  <- prefix "dbprop" (RDF.unode "http://dbpedia.org/property/")
+              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+              dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
 
               x <- var
               ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
@@ -70,10 +70,10 @@ test_constructQuery =
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/resource/")
-              dbpprop  <- prefix "dbprop" (RDF.unode "http://dbpedia.org/property/")
-              foaf     <- prefix "foaf" (RDF.unode "http://xmlns.com/foaf/0.1/")
-              example  <- prefix "example" (RDF.unode "http://www.example.com/")
+              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+              dbpprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
+              foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+              example  <- prefix "example" (iriRef "http://www.example.com/")
 
               x    <- var
               name <- var
@@ -93,6 +93,6 @@ test_describeQuery =
 
     where endPoint = "http://localhost:3000"
           query = do
-              resource <- prefix "dbpedia" (RDF.unode "http://dbpedia.org/resource/")
+              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
               uri <- describeIRI (resource .:. "Edinburgh")
               return DescribeQuery { queryDescribe = uri }
