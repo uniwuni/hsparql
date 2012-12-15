@@ -119,8 +119,8 @@ createDescribeQuery q = execQuery specifyType qshow
 
 -- |Add a prefix to the query, given an IRI reference, and return it.
 prefix :: T.Text -> IRIRef -> Query Prefix
-prefix pre ref = do
-                let p = Prefix pre ref
+prefix pre (AbsoluteIRI node) = do
+                let p = Prefix pre node
                 modify $ \s -> s { prefixes = p : prefixes s }
                 return p
 
@@ -380,19 +380,19 @@ class QueryShow a where
 
 data Duplicates = NoLimits | Distinct | Reduced
 
-data Prefix = Prefix T.Text IRIRef
+data Prefix = Prefix T.Text Node
 
 data Variable = Variable Int
 
-data IRIRef = IRIRef Node
+data IRIRef = AbsoluteIRI Node
             | PrefixedName Prefix T.Text
 
 iriRef :: T.Text -> IRIRef
-iriRef uri = IRIRef $ unode uri
+iriRef uri = AbsoluteIRI $ unode uri
 
 getFQN :: IRIRef -> T.Text
-getFQN (IRIRef (UNode n)) = n
-getFQN (PrefixedName (Prefix _ n) s) = T.append (getFQN n) s
+getFQN (AbsoluteIRI (UNode n)) = n
+getFQN (PrefixedName (Prefix _ (UNode n)) s) = T.append n s
 
 -- Should support numeric literals, too
 data GraphTerm = IRIRefTerm IRIRef
@@ -479,6 +479,9 @@ instance QueryShow Duplicates where
   qshow Distinct = "DISTINCT"
   qshow Reduced  = "REDUCED"
 
+instance QueryShow Node where
+  qshow (UNode n) = "<" ++ T.unpack n ++ ">"
+
 instance QueryShow Prefix where
   qshow (Prefix pre ref) = "PREFIX " ++ (T.unpack pre) ++ ": " ++ qshow ref
 
@@ -486,7 +489,7 @@ instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
 
 instance QueryShow IRIRef where
-  qshow (IRIRef (UNode r)) = "<" ++ (T.unpack r) ++ ">"
+  qshow (AbsoluteIRI (UNode r)) = "<" ++ (T.unpack r) ++ ">"
   qshow (PrefixedName (Prefix pre _) s) = (T.unpack pre) ++ ":" ++ (T.unpack s)
 
 instance QueryShow (Maybe IRIRef) where
@@ -611,4 +614,4 @@ instance QueryShow QueryData where
 -- Internal utilities
 
 escapeQuotes :: T.Text -> T.Text
-escapeQuotes s = T.replace "\"" "\\\"" s
+escapeQuotes = T.replace "\"" "\\\""
