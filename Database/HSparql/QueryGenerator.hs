@@ -489,7 +489,7 @@ instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
 
 instance QueryShow IRIRef where
-  qshow (AbsoluteIRI (UNode r)) = "<" ++ (T.unpack r) ++ ">"
+  qshow (AbsoluteIRI n) = qshow n
   qshow (PrefixedName (Prefix pre _) s) = (T.unpack pre) ++ ":" ++ (T.unpack s)
 
 instance QueryShow (Maybe IRIRef) where
