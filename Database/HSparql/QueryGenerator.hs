@@ -5,6 +5,7 @@ module Database.HSparql.QueryGenerator
       createSelectQuery
     , createConstructQuery
     , createAskQuery
+    , createUpdateQuery
     , createDescribeQuery
     -- * Query Actions
     , prefix
@@ -12,6 +13,7 @@ module Database.HSparql.QueryGenerator
     , Database.HSparql.QueryGenerator.triple
     , constructTriple
     , askTriple
+    , updateTriple
     , describeIRI
     , optional
     , union
@@ -64,6 +66,7 @@ module Database.HSparql.QueryGenerator
     , SelectQuery(..)
     , ConstructQuery(..)
     , AskQuery(..)
+    , UpdateQuery(..)
     , DescribeQuery(..)
     )
 where
@@ -107,6 +110,14 @@ createAskQuery q = execQuery specifyType qshow
            query <- q
            modify $ \s -> s { askTriples = queryAsk query, queryType = AskType }
 
+-- |Execute a 'Update Query' action, returning the 'String' representation of the query.
+createUpdateQuery :: Query UpdateQuery -> String
+createUpdateQuery q = execQuery specifyType qshow
+    where specifyType :: Query ()
+          specifyType = do
+           query <- q
+           modify $ \s -> s { updateTriples = queryUpdate query, queryType = UpdateType }
+
 -- |Execute a 'Describe Query' action, returning the 'String' representation of the query.
 createDescribeQuery :: Query DescribeQuery -> String
 createDescribeQuery q = execQuery specifyType qshow
@@ -149,6 +160,12 @@ askTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Patter
 askTriple a b c = do
     let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
     modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
+    return t
+
+updateTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+updateTriple a b c = do
+    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c) -- TODO: should only allow terms
+    modify $ \s -> s { updateTriples = appendTriple t (updateTriples s) }
     return t
 
 describeIRI :: IRIRef -> Query IRIRef
@@ -365,6 +382,7 @@ queryData = QueryData
     , pattern    = GroupGraphPattern []
     , constructTriples = []
     , askTriples = []
+    , updateTriples = []
     , describeURI = Nothing
     , duplicates = NoLimits
     , ordering   = []
@@ -447,21 +465,25 @@ data QueryData = QueryData
     , pattern    :: GroupGraphPattern
     , constructTriples :: [Pattern] -- QTriple
     , askTriples :: [Pattern]
+    , updateTriples :: [Pattern]
     , describeURI :: Maybe IRIRef
     , duplicates :: Duplicates
     , ordering   :: [OrderBy]
     }
 
 
-data QueryType = SelectType | ConstructType | AskType | DescribeType | TypeNotSet
+data QueryType = SelectType | ConstructType | AskType | UpdateType | DescribeType | TypeNotSet
 
-data QueryForm = SelectForm QueryData | ConstructForm QueryData | AskForm QueryData | DescribeForm QueryData
+data QueryForm = SelectForm QueryData | ConstructForm QueryData | AskForm QueryData | UpdateForm QueryData | DescribeForm QueryData
 
 data ConstructQuery = ConstructQuery
     { queryConstructs :: [Pattern] }
 
 data AskQuery = AskQuery
     { queryAsk :: [Pattern] }
+
+data UpdateQuery = UpdateQuery
+    { queryUpdate :: [Pattern] }
 
 data SelectQuery = SelectQuery
     { queryVars :: [Variable] }
@@ -579,6 +601,8 @@ instance QueryShow QueryForm where
 
   qshow (AskForm qd) = "ASK { " ++ qshow (askTriples qd) ++ " }"
 
+  qshow (UpdateForm qd) = "INSERT DATA { " ++ qshow (updateTriples qd) ++ " }"
+
   qshow (DescribeForm qd) = "DESCRIBE " ++ qshow (describeURI qd)
 
 instance QueryShow QueryData where
@@ -608,6 +632,10 @@ instance QueryShow QueryData where
                   AskType -> 
                    unwords [ qshow (prefixes qd)
                            , qshow (AskForm qd)
+                           ]
+                  UpdateType -> 
+                   unwords [ qshow (prefixes qd)
+                           , qshow (UpdateForm qd)
                            ]
              in query
 

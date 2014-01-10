@@ -4,6 +4,7 @@ module Database.HSparql.Connection
     , selectQuery
     , constructQuery
     , askQuery
+    , updateQuery
     , describeQuery
     )
 where
@@ -73,6 +74,12 @@ parseAsk s
   | s == "false" = False
   | otherwise = error $ "Unexpected Ask response: " ++ s
 
+-- |Parses the response from a SPARQL UPDATE query.  An empty body is expected
+parseUpdate :: String -> Bool
+parseUpdate s
+  | s == "" = True
+  | otherwise = error $ "Unexpected Update response: " ++ s
+
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
 --  'Variable's in the 'SelectQuery' action.
 selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
@@ -96,6 +103,25 @@ askQuery ep q = do
         request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
     response <- simpleHTTP request >>= getResponseBody
     return $ parseAsk response
+
+
+-- |Connect to remote 'EndPoint' and find all possible bindings for the
+--  'Variable's in the 'SelectQuery' action.
+updateQuery :: Database.HSparql.Connection.EndPoint -> Query UpdateQuery -> IO Bool
+updateQuery ep q = do
+    let uri = ep
+        body = createUpdateQuery q
+        h1 = mkHeader HdrContentLength $ show (length body)
+        h2 = mkHeader HdrContentType "application/sparql-update"
+        h3 = mkHeader HdrUserAgent "hsparql-client"
+        request = Request { rqURI = fromJust $ parseURI uri
+                          , rqHeaders = [h1,h2,h3]
+                          , rqMethod = POST
+                          , rqBody = body
+                          }
+    response <- simpleHTTP request >>= getResponseBody
+--    return $ structureContent response
+    return $ parseUpdate response
 
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
