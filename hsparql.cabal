@@ -1,6 +1,6 @@
 Name:          hsparql
 Homepage:      https://github.com/robstewart57/hsparql
-Version:       0.2.0
+Version:       0.2.2
 Synopsis:      A SPARQL query generator and DSL, and a client to query a SPARQL server.
 Category:      Database
 Description:
@@ -29,9 +29,10 @@ library
                , xml
                , rdf4h >= 1.0.0
                , bytestring
+               , MissingH
                , network
                , text
-  extensions:  RankNTypes FlexibleInstances
+  extensions:  RankNTypes FlexibleInstances OverloadedStrings
 
 test-suite test-hsparql
   type:          exitcode-stdio-1.0

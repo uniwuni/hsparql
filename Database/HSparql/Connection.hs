@@ -4,6 +4,7 @@ module Database.HSparql.Connection
     , selectQuery
     , constructQuery
     , askQuery
+    , updateQuery
     , describeQuery
     )
 where
@@ -54,7 +55,7 @@ structureContent s =
           value :: Element -> BindingValue
           value e =
             case qName (elName e) of
-              "uri"     -> Bound $ Data.RDF.unode $ T.pack $ strContent e
+              "uri"     -> Bound $ Data.RDF.unode $ (T.pack $ strContent e)
               "literal" -> case findAttr (unqual "datatype") e of
                              Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (T.pack $ strContent e) (T.pack dt)
                              Nothing -> case findAttr langAttr e of
@@ -73,12 +74,24 @@ parseAsk s
   | s == "false" = False
   | otherwise = error $ "Unexpected Ask response: " ++ s
 
+-- |Parses the response from a SPARQL UPDATE query.  An empty body is expected
+parseUpdate :: String -> Bool
+parseUpdate s
+  | s == "" = True
+  | otherwise = error $ "Unexpected Update response: " ++ s
+
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
 --  'Variable's in the 'SelectQuery' action.
 selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
 selectQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
-        request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
+        h1 = mkHeader HdrAccept "application/sparql-results+xml"
+        h2 = mkHeader HdrUserAgent "hsparql-client"
+        request = Request { rqURI = fromJust $ parseURI uri
+                          , rqHeaders = [h1,h2]
+                          , rqMethod = GET
+                          , rqBody = ""
+                          }
     response <- simpleHTTP request >>= getResponseBody
     return $ structureContent response
 
@@ -86,10 +99,29 @@ selectQuery ep q = do
 --  'Variable's in the 'SelectQuery' action.
 askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
 askQuery ep q = do
-    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
+    let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
         request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
     response <- simpleHTTP request >>= getResponseBody
     return $ parseAsk response
+
+
+-- |Connect to remote 'EndPoint' and find all possible bindings for the
+--  'Variable's in the 'SelectQuery' action.
+updateQuery :: Database.HSparql.Connection.EndPoint -> Query UpdateQuery -> IO Bool
+updateQuery ep q = do
+    let uri = ep
+        body = createUpdateQuery q
+        h1 = mkHeader HdrContentLength $ show (length body)
+        h2 = mkHeader HdrContentType "application/sparql-update"
+        h3 = mkHeader HdrUserAgent "hsparql-client"
+        request = Request { rqURI = fromJust $ parseURI uri
+                          , rqHeaders = [h1,h2,h3]
+                          , rqMethod = POST
+                          , rqBody = body
+                          }
+    response <- simpleHTTP request >>= getResponseBody
+--    return $ structureContent response
+    return $ parseUpdate response
 
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
