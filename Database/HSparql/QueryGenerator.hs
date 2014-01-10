@@ -30,6 +30,8 @@ module Database.HSparql.QueryGenerator
     -- ** Auxiliary
     , (.:.)
     , iriRef
+    , litRef
+    , litLangRef
 
     -- * Term Manipulation
 
@@ -194,6 +196,14 @@ filterExpr e = do
 --  located.
 iriRef :: String -> IRIRef
 iriRef = IRIRef
+
+-- |Create an 'RDFLiteral' from a 'String' literal value.
+litRef :: String -> RDFLiteral
+litRef = RDFLiteral
+
+-- |Create an 'RDFLiteral' from a 'String' literal value with a 'String' language tag.
+litLangRef :: String -> String -> RDFLiteral
+litLangRef = RDFLiteralLang
 
 -- Duplicate handling
 
