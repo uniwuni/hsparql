@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -31,7 +32,7 @@ startServer = run 3000 testServer
                                                 -> describeResponse
                                         otherwise
                                                 -> error "Unexpected URI"
-                    selectResponse = ResponseFile status200 [("Content-Type", "application/sparql-results+xml")] "tests/fixtures/sparql_select_response.xml" Nothing
-                    askResponse = ResponseFile status200 [("Content-Type", "text/plain")] "tests/fixtures/sparql_ask_response.text" Nothing
-                    constructResponse = ResponseFile status200 [("Content-Type", "text/turtle")] "tests/fixtures/sparql_construct_response.ttl" Nothing
-                    describeResponse = ResponseFile status200 [("Content-Type", "text/turtle")] "tests/fixtures/sparql_describe_response.ttl" Nothing
+                    selectResponse = responseFile status200 [("Content-Type", "application/sparql-results+xml")] "tests/fixtures/sparql_select_response.xml" Nothing
+                    askResponse = responseFile status200 [("Content-Type", "text/plain")] "tests/fixtures/sparql_ask_response.text" Nothing
+                    constructResponse = responseFile status200 [("Content-Type", "text/turtle")] "tests/fixtures/sparql_construct_response.ttl" Nothing
+                    describeResponse = responseFile status200 [("Content-Type", "text/turtle")] "tests/fixtures/sparql_describe_response.ttl" Nothing
