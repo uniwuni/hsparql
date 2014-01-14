@@ -70,9 +70,11 @@ structureContent s =
 -- |Parses the response from a SPARQL ASK query. Either "true" or "false" is expected
 parseAsk :: String -> Bool
 parseAsk s
-  | s == "true" = True
-  | s == "false" = False
+  | (s' == "true" || s' == "yes") = True
+  | (s' == "false"|| s' == "no")  = False
   | otherwise = error $ "Unexpected Ask response: " ++ s
+ where
+  s' = reverse $ dropWhile (=='\n') $ reverse s
 
 -- |Parses the response from a SPARQL UPDATE query.  An empty body is expected
 parseUpdate :: String -> Bool
@@ -100,7 +102,10 @@ selectQuery ep q = do
 askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
 askQuery ep q = do
     let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
-        request  = replaceHeader HdrUserAgent "hsparql-client" (getRequest uri)
+        hdr1 = Header HdrUserAgent "hsparql-client"
+        hdr2 = Header HdrAccept "text/plain"
+        hdr3 = Header HdrAcceptCharset "utf-8"
+        request  = insertHeaders [hdr1,hdr2,hdr3] (getRequest uri)
     response <- simpleHTTP request >>= getResponseBody
     return $ parseAsk response
 

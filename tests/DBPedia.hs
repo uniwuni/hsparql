@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables,OverloadedStrings #-}
 
 module DBPedia where
 
@@ -7,6 +7,8 @@ import Database.HSparql.QueryGenerator
 
 import Data.RDF hiding (triple)
 import Data.RDF.TriplesGraph
+import Data.Text
+--import Data.String
 
 selectExample :: IO ()
 selectExample = do
@@ -57,7 +59,7 @@ simpleSelectWithLiteral = do
     l        <- var
 
     triple l (rdf .:. "type") (ontology .:. "ProgrammingLanguage")
-    triple l (rdfs .:. "label") ("D (programming language)", "en")
+    triple l (rdfs .:. "label") (("D (programming language)", "en") :: (Text,Text))
 
     return SelectQuery { queryVars = [l] }
 
@@ -114,7 +116,7 @@ trickySelect = do
     -- Query
     triple x (foaf .:. "name") name
     optional $ do triple x (owl .:. "sameAs") fbase
-                  filterExpr $ regex fbase "freebase"
+                  filterExpr $ regex fbase ("freebase" :: Text)
     filterExpr $ notExpr $ bound fbase
 
     distinct
@@ -162,7 +164,7 @@ berlinersSelect = do
     triple person (foaf .:. "name")       name
     triple person (dbo  .:. "deathdate")  death
 
-    filterExpr $ birth .<. ("1900-01-01", xsd .:. "date")
+    filterExpr $ birth .<. ("1900-01-01" :: Text, xsd .:. "date")
 
     optional $ triple person (prop .:. "KnownFor") knownfor
 
