@@ -63,6 +63,7 @@ module Database.HSparql.QueryGenerator
     -- * Types
     , Query
     , Variable
+    , VarOrNode(..)
     , Pattern
     , SelectQuery(..)
     , ConstructQuery(..)
@@ -272,6 +273,12 @@ instance TermLike (T.Text, IRIRef) where
 instance TermLike Bool where
   varOrTerm = Term . BooleanLiteralTerm
 
+instance TermLike VarOrNode where
+  varOrTerm (Var' v)              = Var v
+  varOrTerm (RDFNode n@(UNode _)) = (Term . IRIRefTerm . AbsoluteIRI) n
+  varOrTerm (RDFNode (LNode lv))  = (Term . RDFLiteralTerm) lv
+  -- TODO: non-exhaustive: missing BNode, BNodeGen
+
 -- Operations
 operation :: (TermLike a, TermLike b) => Operation -> a -> b -> Expr
 operation op x y = NumericExpr $ OperationExpr op (expr x) (expr y)
@@ -422,6 +429,12 @@ data GraphTerm = IRIRefTerm IRIRef
 
 data VarOrTerm = Var Variable
                | Term GraphTerm
+
+-- |Enables programmatic construction of triples where it is not known in
+-- advance which parts of the triple will be variables and which will be
+-- 'Node's.
+data VarOrNode = Var' Variable
+               | RDFNode Node
 
 data Operation = Add | Subtract | Multiply | Divide
 
