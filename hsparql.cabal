@@ -46,7 +46,7 @@ test-suite test-hsparql
                  , HUnit
                  , test-framework
                  , test-framework-hunit
-                 , wai >= 2.0.0
+                 , wai >= 2.0.0 && < 3.0.0
                  , warp
   hs-source-dirs: Database, tests
   extensions:  OverloadedStrings, FlexibleInstances
