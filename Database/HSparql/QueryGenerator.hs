@@ -24,6 +24,9 @@ module Database.HSparql.QueryGenerator
     , distinct
     , reduced
 
+    -- ** Limit handling
+    , limit
+
     -- ** Order handling
     , orderNext
     , orderNextAsc
@@ -223,6 +226,12 @@ reduced :: Query Duplicates
 reduced = do modify $ \s -> s { duplicates = Reduced }
              gets duplicates
 
+-- |Set limit handling to the given value.  By default, there are no limits.
+--  Note: negative numbers cause no query results to be returned.
+limit :: Int -> Query Limit
+limit n = do modify $ \s -> s { limits = Limit n }
+             gets limits
+
 -- Order handling
 
 -- |Alias of 'orderNextAsc'.
@@ -394,6 +403,7 @@ queryData = QueryData
     , updateTriples = []
     , describeURI = Nothing
     , duplicates = NoLimits
+    , limits     = NoLimit
     , ordering   = []
     }
 
@@ -406,6 +416,8 @@ class QueryShow a where
   qshow :: a -> String
 
 data Duplicates = NoLimits | Distinct | Reduced
+
+data Limit = NoLimit | Limit Int
 
 data Prefix = Prefix T.Text Node
 
@@ -483,6 +495,7 @@ data QueryData = QueryData
     , updateTriples :: [Pattern]
     , describeURI :: Maybe IRIRef
     , duplicates :: Duplicates
+    , limits     :: Limit
     , ordering   :: [OrderBy]
     }
 
@@ -515,6 +528,10 @@ instance QueryShow Duplicates where
   qshow NoLimits = ""
   qshow Distinct = "DISTINCT"
   qshow Reduced  = "REDUCED"
+
+instance QueryShow Limit where
+  qshow NoLimit   = ""
+  qshow (Limit n) = "Limit " ++ show n
 
 instance QueryShow Node where
   qshow (UNode n) = "<" ++ T.unpack n ++ ">"
@@ -633,6 +650,7 @@ instance QueryShow QueryData where
                    unwords [ qshow (prefixes qd)
                            , qshow (SelectForm qd)
                            , whereStmt
+                           , qshow (limits qd)
                            ]
                   ConstructType -> 
                    unwords [ qshow (prefixes qd)
