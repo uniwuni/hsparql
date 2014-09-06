@@ -12,7 +12,7 @@ Description:
       <https://github.com/robstewart57/hsparql/blob/master/tests/DBPedia.hs>.
 License:       BSD3
 License-file:  LICENSE
-Author:        Jeff Wheeler
+Author:        Jeff Wheeler, Rob Stewart
 Maintainer:    Rob Stewart <robstewart57@gmail.com>
 homepage:      https://github.com/robstewart57/hsparql
 bug-reports:   https://github.com/robstewart57/hsparql/issues
@@ -47,8 +47,8 @@ test-suite test-hsparql
                  , HUnit
                  , test-framework
                  , test-framework-hunit
-                 , wai >= 2.0.0 && < 3.0.0
-                 , warp >= 1.0.0 && < 3.0.0
+                 , wai >= 3.0.0
+                 , warp >= 3.0.1
                  , network-uri
   hs-source-dirs: Database, tests
   extensions:  OverloadedStrings, FlexibleInstances
