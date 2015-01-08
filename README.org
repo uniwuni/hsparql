@@ -216,7 +216,7 @@ Here's the respective type:
 askQuery :: EndPoint -> Query AskQuery -> IO Bool
      #+END_SRC
 
-** TODO's
+** TODOs
 
 *** Opt for a unified Type representation
 This hsparql package and the RDF4H [1] package use similar, but not
