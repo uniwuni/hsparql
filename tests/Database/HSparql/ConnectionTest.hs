@@ -14,7 +14,7 @@ import Database.HSparql.QueryGenerator
 
 testSuite = [
     testGroup "Database.HSparql.Connection tests" [
-      testCase "selectQuery" test_selectQuery
+        testCase "selectQuery" test_selectQuery
       , testCase "askQuery" test_askQuery
       , testCase "constructQuery" test_constructQuery
       , testCase "describeQuery" test_describeQuery
@@ -79,7 +79,6 @@ test_constructQuery =
               name <- var
 
               construct <- constructTriple x (example .:. "hasName") name
-          
               triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
               triple x (foaf .:. "name") name
 
