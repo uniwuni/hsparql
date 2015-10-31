@@ -51,6 +51,7 @@ test-suite test-hsparql
                  , warp >= 3.0.1
                  , network-uri
   hs-source-dirs: Database, tests
+  other-modules: Database.HSparql.ConnectionTest
   extensions:  OverloadedStrings, FlexibleInstances
 
 source-repository head
