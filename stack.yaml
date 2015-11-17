@@ -1,0 +1,8 @@
+resolver: lts-3.6
+packages:
+- '.'
+extra-deps: [rdf4h-1.3.5]
+flags:
+  rdf4h:
+    network-uri: true
+    small_base: true
