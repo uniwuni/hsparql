@@ -30,7 +30,7 @@ test_selectQuery =
     bvars <- selectQuery endPoint query
     assertEqual "bound variables" expectedBVars bvars
 
-    where endPoint = "http://localhost:3000"
+    where endPoint = "http://127.0.0.1:3000"
           query = do
               resource <- prefix "dbprop" (iriRef "http://dbpedia.org/resource/")
               dbpprop  <- prefix "dbpedia" (iriRef "http://dbpedia.org/property/")
@@ -48,7 +48,7 @@ test_askQuery = do
     bool <- askQuery endPoint query
     assertBool "invalid" bool
 
-    where endPoint = "http://localhost:3000"
+    where endPoint = "http://127.0.0.1:3000"
           query = do
               resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
               dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
@@ -68,7 +68,7 @@ test_constructQuery =
     graph <- constructQuery endPoint query :: IO G.TriplesGraph
     assertBool "RDF does not include the constructed triple" $ RDF.isIsomorphic expectedGraph graph
 
-    where endPoint = "http://localhost:3000"
+    where endPoint = "http://127.0.0.1:3000"
           query = do
               resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
               dbpprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
@@ -90,7 +90,7 @@ test_describeQuery =
     graph <- describeQuery endPoint query :: IO G.TriplesGraph
     assertBool "RDF does not include the required node" $ RDF.rdfContainsNode graph expectedNode
 
-    where endPoint = "http://localhost:3000"
+    where endPoint = "http://127.0.0.1:3000"
           query = do
               resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
               uri <- describeIRI (resource .:. "Edinburgh")
