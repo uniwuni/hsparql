@@ -349,11 +349,11 @@ notExpr :: (TermLike a) => a -> Expr
 notExpr = NegatedExpr . expr
 
 -- Builtin Functions
-type BuiltinFunc1 = (TermLike a) => a -> Expr
+type BuiltinFunc1 = forall a . (TermLike a) => a -> Expr
 builtinFunc1 :: Function -> BuiltinFunc1
 builtinFunc1 f x = BuiltinCall f [expr x]
 
-type BuiltinFunc2 = (TermLike a, TermLike b) => a -> b -> Expr
+type BuiltinFunc2 = forall a b . (TermLike a, TermLike b) => a -> b -> Expr
 builtinFunc2 :: Function -> BuiltinFunc2
 builtinFunc2 f x y = BuiltinCall f [expr x, expr y]
 
