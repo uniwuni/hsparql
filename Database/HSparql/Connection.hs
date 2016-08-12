@@ -104,8 +104,9 @@ askQuery ep q = do
     let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
         hdr1 = Header HdrUserAgent "hsparql-client"
         hdr2 = Header HdrAccept "text/plain"
-        hdr3 = Header HdrAcceptCharset "utf-8"
-        request  = insertHeaders [hdr1,hdr2,hdr3] (getRequest uri)
+        hdr3 = Header HdrAccept "text/boolean"
+        hdr4 = Header HdrAcceptCharset "utf-8"
+        request  = insertHeaders [hdr1,hdr2,hdr3,hdr4] (getRequest uri)
     response <- simpleHTTP request >>= getResponseBody
     return $ parseAsk response
 
