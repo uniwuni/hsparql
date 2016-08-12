@@ -27,7 +27,7 @@ library
                , HTTP >= 4
                , mtl
                , xml
-               , rdf4h >= 1.3.4
+               , rdf4h >= 2.0.0
                , bytestring
                , MissingH
                , network
@@ -39,7 +39,7 @@ test-suite test-hsparql
   type:          exitcode-stdio-1.0
   main-is:       AllTests.hs
   build-depends: hsparql
-                 , rdf4h >= 1.3.4
+                 , rdf4h >= 2.0.0
                  , base
                  , text
                  , containers

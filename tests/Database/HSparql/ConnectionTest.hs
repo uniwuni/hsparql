@@ -7,7 +7,6 @@ import Test.HUnit
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.RDF as RDF
-import qualified Data.RDF.TriplesGraph as G
 
 import Database.HSparql.Connection
 import Database.HSparql.QueryGenerator
@@ -59,13 +58,13 @@ test_askQuery = do
               return AskQuery { queryAsk = [ask] }
 
 test_constructQuery =
-  let expectedGraph :: G.TriplesGraph
-      expectedGraph = G.mkRdf expectedTriples Nothing (RDF.PrefixMappings Map.empty)
+  let expectedGraph :: RDF.TriplesList
+      expectedGraph = RDF.mkRdf expectedTriples Nothing (RDF.PrefixMappings Map.empty)
       expectedTriples = [ RDF.Triple (RDF.unode "http://dbpedia.org/resource/Kazehakase")
                                      (RDF.unode "http://www.example.com/hasName")
                                      (RDF.lnode $ RDF.plainLL "Kazehakase" "en") ]
   in do
-    graph <- constructQuery endPoint query :: IO G.TriplesGraph
+    graph <- constructQuery endPoint query :: IO RDF.TriplesList
     assertBool "RDF does not include the constructed triple" $ RDF.isIsomorphic expectedGraph graph
 
     where endPoint = "http://127.0.0.1:3000"
@@ -87,7 +86,7 @@ test_constructQuery =
 test_describeQuery =
   let expectedNode = RDF.unode "http://dbpedia.org/resource/Edinburgh"
   in do
-    graph <- describeQuery endPoint query :: IO G.TriplesGraph
+    graph <- describeQuery endPoint query :: IO RDF.TriplesList
     assertBool "RDF does not include the required node" $ RDF.rdfContainsNode graph expectedNode
 
     where endPoint = "http://127.0.0.1:3000"
