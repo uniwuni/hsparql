@@ -132,7 +132,7 @@ updateQuery ep q = do
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-constructQuery :: forall rdf. (RDF rdf) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO rdf
+constructQuery :: (Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF a)
 constructQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
     rdfGraph <- httpCallForRdf uri
@@ -143,7 +143,7 @@ constructQuery ep q = do
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-describeQuery :: forall rdf. (RDF rdf) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO rdf
+describeQuery :: (Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF a)
 describeQuery ep q = do
     let uri      = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
     rdfGraph <- httpCallForRdf uri
@@ -153,7 +153,7 @@ describeQuery ep q = do
     
 -- |Takes a generated uri and makes simple HTTP request,
 -- asking for RDF N3 serialization. Returns either 'ParseFailure' or 'RDF'
-httpCallForRdf :: RDF rdf => String -> IO (Either ParseFailure rdf)
+httpCallForRdf :: Rdf a => String -> IO (Either ParseFailure (RDF a))
 httpCallForRdf uri = do
   let h1 = mkHeader HdrUserAgent "hsparql-client"
       h2 = mkHeader HdrAccept "text/turtle"

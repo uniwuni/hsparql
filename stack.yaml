@@ -2,7 +2,7 @@ resolver: lts-6.11
 packages:
 - '.'
 extra-deps:
-- rdf4h-2.0.0
+- rdf4h-3.0.0
 - hgal-2.0.0.2
 flags:
   rdf4h:
