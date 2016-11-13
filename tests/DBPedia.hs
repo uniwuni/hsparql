@@ -6,7 +6,6 @@ import Database.HSparql.Connection
 import Database.HSparql.QueryGenerator
 
 import Data.RDF hiding (triple)
-import Data.RDF.TriplesGraph
 import Data.Text
 --import Data.String
 
@@ -27,12 +26,12 @@ askExample = do
 
 describeExample :: IO ()
 describeExample = do
-  (rdfGraph:: TriplesGraph) <- describeQuery "http://dbpedia.org/sparql" simpleDescribe
+  (rdfGraph:: RDF TList) <- describeQuery "http://dbpedia.org/sparql" simpleDescribe
   mapM_ print (triplesOf rdfGraph)
 
 constructExample :: IO ()
 constructExample = do
-  (rdfGraph :: TriplesGraph) <- constructQuery "http://dbpedia.org/sparql" simpleConstruct
+  (rdfGraph :: RDF TList) <- constructQuery "http://dbpedia.org/sparql" simpleConstruct
   mapM_ print (triplesOf rdfGraph)
 
 
