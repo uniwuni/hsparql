@@ -310,11 +310,11 @@ operation op x y = NumericExpr $ OperationExpr op (expr x) (expr y)
 
 -- | Combine two boolean terms with AND
 (.&&.) :: (TermLike a, TermLike b) => a -> b -> Expr
-(.&&.) = operation Multiply
+(.&&.) = operation And
 
 -- | Combine two boolean terms with OR
 (.||.) :: (TermLike a, TermLike b) => a -> b -> Expr
-(.||.) = operation Divide
+(.||.) = operation Or
 
 infixr 2 .||.
 infixr 3 .&&.
