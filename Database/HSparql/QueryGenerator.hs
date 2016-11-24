@@ -39,7 +39,7 @@ module Database.HSparql.QueryGenerator
     -- * Term Manipulation
 
     -- ** Operations
-    , (.+.), (.-.), (.*.), (./.)
+    , (.+.), (.-.), (.*.), (./.), (.&&.), (.||.)
 
     -- ** Relations
     , (.==.), (.!=.), (.<.), (.>.), (.<=.), (.>=.)
@@ -308,6 +308,21 @@ operation op x y = NumericExpr $ OperationExpr op (expr x) (expr y)
 (./.) :: (TermLike a, TermLike b) => a -> b -> Expr
 (./.) = operation Divide
 
+-- | Combine two boolean terms with AND
+(.&&.) :: (TermLike a, TermLike b) => a -> b -> Expr
+(.&&.) = operation Multiply
+
+-- | Combine two boolean terms with OR
+(.||.) :: (TermLike a, TermLike b) => a -> b -> Expr
+(.||.) = operation Divide
+
+infixr 2 .||.
+infixr 3 .&&.
+infixl 7 .*.
+infixl 7 ./.
+infixl 6 .+.
+infixl 6 .-.
+
 -- Relations
 relation :: (TermLike a, TermLike b) => Relation -> a -> b -> Expr
 relation rel x y = RelationalExpr rel (expr x) (expr y)
@@ -455,7 +470,7 @@ data VarOrTerm = Var Variable
 data VarOrNode = Var' Variable
                | RDFNode Node
 
-data Operation = Add | Subtract | Multiply | Divide
+data Operation = Add | Subtract | Multiply | Divide | And | Or
 
 data NumericExpr = NumericLiteralExpr Integer
                  | OperationExpr Operation Expr Expr
@@ -578,6 +593,8 @@ instance QueryShow Operation where
   qshow Subtract = "-"
   qshow Multiply = "*"
   qshow Divide   = "/"
+  qshow And      = "&&"
+  qshow Or       = "||"
 
 instance QueryShow NumericExpr where
   qshow (NumericLiteralExpr n) = show n
