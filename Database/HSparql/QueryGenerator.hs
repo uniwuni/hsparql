@@ -58,7 +58,7 @@ module Database.HSparql.QueryGenerator
     , isURI
     , isBlank
     , isLiteral
-    , regex
+    , regex, regexOpts
 
     -- * Printing Queries
     , qshow
@@ -357,6 +357,10 @@ type BuiltinFunc2 = forall a b . (TermLike a, TermLike b) => a -> b -> Expr
 builtinFunc2 :: Function -> BuiltinFunc2
 builtinFunc2 f x y = BuiltinCall f [expr x, expr y]
 
+type BuiltinFunc3 = forall a b c . (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Expr
+builtinFunc3 :: Function -> BuiltinFunc3
+builtinFunc3 f x y z = BuiltinCall f [expr x, expr y, expr z]
+
 str :: BuiltinFunc1
 str = builtinFunc1 StrFunc
 
@@ -389,6 +393,9 @@ isLiteral = builtinFunc1 IsLiteralFunc
 
 regex :: BuiltinFunc2
 regex = builtinFunc2 RegexFunc
+
+regexOpts :: BuiltinFunc3
+regexOpts = builtinFunc3 RegexFunc
 
 -- Default QueryData
 queryData :: QueryData
