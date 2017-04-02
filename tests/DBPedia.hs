@@ -159,9 +159,9 @@ berlinersSelect = do
     knownfor <- var
 
     triple person (prop .:. "birthPlace") (resc .:. "Berlin")
-    triple person (dbo  .:. "birthdate")  birth
+    triple person (dbo  .:. "birthDate")  birth
     triple person (foaf .:. "name")       name
-    triple person (dbo  .:. "deathdate")  death
+    triple person (dbo  .:. "deathDate")  death
 
     filterExpr $ birth .<. ("1900-01-01" :: Text, xsd .:. "date")
 
