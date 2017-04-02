@@ -81,7 +81,6 @@ import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.RDF
 
-
 -- State monads
 
 -- |The 'State' monad applied to 'QueryData'.
@@ -438,15 +437,20 @@ class QueryShow a where
   qshow :: a -> String
 
 data Duplicates = NoLimits | Distinct | Reduced
+                deriving (Show)
 
 data Limit = NoLimit | Limit Int
+           deriving (Show)
 
 data Prefix = Prefix T.Text Node
+            deriving (Show)
 
 data Variable = Variable Int
+              deriving (Show)
 
 data IRIRef = AbsoluteIRI Node
             | PrefixedName Prefix T.Text
+            deriving (Show)
 
 iriRef :: T.Text -> IRIRef
 iriRef uri = AbsoluteIRI $ unode uri
@@ -460,26 +464,33 @@ data GraphTerm = IRIRefTerm IRIRef
                | RDFLiteralTerm LValue
                | NumericLiteralTerm Integer
                | BooleanLiteralTerm Bool
+               deriving (Show)
 
 data VarOrTerm = Var Variable
                | Term GraphTerm
+               deriving (Show)
 
 -- |Enables programmatic construction of triples where it is not known in
 -- advance which parts of the triple will be variables and which will be
 -- 'Node's.
 data VarOrNode = Var' Variable
                | RDFNode Node
+               deriving (Show)
 
 data Operation = Add | Subtract | Multiply | Divide | And | Or
+               deriving (Show)
 
 data NumericExpr = NumericLiteralExpr Integer
                  | OperationExpr Operation Expr Expr
+                 deriving (Show)
 
 data Relation = Equal | NotEqual | LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual
+              deriving (Show)
 
 data Function = StrFunc | LangFunc | LangMatchesFunc | DataTypeFunc | BoundFunc
               | SameTermFunc | IsIRIFunc | IsURIFunc | IsBlankFunc
               | IsLiteralFunc | RegexFunc
+              deriving (Show)
 
 data Expr = OrExpr [Expr]
           | AndExpr [Expr]
@@ -488,6 +499,7 @@ data Expr = OrExpr [Expr]
           | NumericExpr NumericExpr
           | BuiltinCall Function [Expr]
           | VarOrTermExpr VarOrTerm
+          deriving (Show)
 
 data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Filter Expr
@@ -575,7 +587,7 @@ instance QueryShow (Maybe IRIRef) where
 instance QueryShow LValue where
   qshow (PlainL s)        = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\""
   qshow (PlainLL s lang') = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"@" ++ (T.unpack lang')
-  qshow (TypedL s ref)    = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"^^" ++ (T.unpack ref)
+  qshow (TypedL s ref)    = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"^^" ++ "<" ++ (T.unpack ref) ++ ">"
 
 instance QueryShow GraphTerm where
   qshow (IRIRefTerm ref)           = qshow ref
