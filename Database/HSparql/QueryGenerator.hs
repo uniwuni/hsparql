@@ -19,6 +19,7 @@ module Database.HSparql.QueryGenerator
     , optional
     , union
     , filterExpr
+    , bind
 
     -- ** Duplicate handling
     , distinct
@@ -208,6 +209,12 @@ filterExpr e = do
     let f = Filter (expr e)
     modify $ \s -> s { pattern = appendPattern f (pattern s) }
     return f
+
+bind :: Expr -> Variable -> Query Pattern
+bind e v = do
+  let b = Bind (expr e) v
+  modify $ \s -> s { pattern = appendPattern b (pattern s) }
+  return b
 
 -- Random auxiliary
 
@@ -506,6 +513,7 @@ data Expr = OrExpr [Expr]
 
 data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Filter Expr
+             | Bind Expr Variable
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
 data GroupGraphPattern = GroupGraphPattern [Pattern]
@@ -648,7 +656,8 @@ instance QueryShow Expr where
 
 instance QueryShow Pattern where
   qshow (QTriple a b c) = qshow [a, b, c] ++ " ."
-  qshow (Filter e)     = "FILTER " ++ qshow e ++ " ."
+  qshow (Filter e)      = "FILTER " ++ qshow e ++ " ."
+  qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
 
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
