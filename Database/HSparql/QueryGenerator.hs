@@ -73,6 +73,9 @@ module Database.HSparql.QueryGenerator
     , AskQuery(..)
     , UpdateQuery(..)
     , DescribeQuery(..)
+
+    -- * Classes
+    , TermLike (..)
     )
 where
 
@@ -192,7 +195,7 @@ optional q = do
 -- |Add a union structure to the query pattern. As with 'optional' blocks,
 --  variables must be defined prior to the opening of any block.
 union :: Query a -> Query b -> Query Pattern
-union q1 q2 = do 
+union q1 q2 = do
     let p1    = execQuery q1 pattern
         p2    = execQuery q2 pattern
         union' = UnionGraphPattern p1 p2
@@ -235,7 +238,7 @@ limit n = do modify $ \s -> s { limits = Limit n }
 
 -- |Alias of 'orderNextAsc'.
 orderNext :: (TermLike a) => a -> Query ()
-orderNext = orderNextAsc 
+orderNext = orderNextAsc
 
 -- |Order the results, after any previous ordering, based on the term, in
 --  ascending order.
@@ -659,7 +662,7 @@ instance QueryShow OrderBy where
 
 
 instance QueryShow QueryForm where
-  qshow (SelectForm qd) =  unwords 
+  qshow (SelectForm qd) =  unwords
                         [ "SELECT"
                          , qshow (duplicates qd)
                          , qshow (vars qd)
@@ -682,27 +685,27 @@ instance QueryShow QueryData where
                                       os -> "ORDER BY" : map qshow os
 
                  query = case queryType qd of
-                  SelectType -> 
+                  SelectType ->
                    unwords [ qshow (prefixes qd)
                            , qshow (SelectForm qd)
                            , whereStmt
                            , qshow (limits qd)
                            ]
-                  ConstructType -> 
+                  ConstructType ->
                    unwords [ qshow (prefixes qd)
                            , qshow (ConstructForm qd)
                            , whereStmt
                            ]
-                  DescribeType -> 
+                  DescribeType ->
                    unwords [ qshow (prefixes qd)
                            , qshow (DescribeForm qd)
                            , whereStmt
                            ]
-                  AskType -> 
+                  AskType ->
                    unwords [ qshow (prefixes qd)
                            , qshow (AskForm qd)
                            ]
-                  UpdateType -> 
+                  UpdateType ->
                    unwords [ qshow (prefixes qd)
                            , qshow (UpdateForm qd)
                            ]
