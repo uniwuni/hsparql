@@ -34,6 +34,7 @@ library
                , text
                , network-uri
   extensions:  RankNTypes FlexibleInstances OverloadedStrings
+  ghc-options: -Wall -Wcompat
 
 test-suite test-hsparql
   type:          exitcode-stdio-1.0
@@ -53,6 +54,7 @@ test-suite test-hsparql
   hs-source-dirs: Database, tests
   other-modules: Database.HSparql.ConnectionTest
   extensions:  OverloadedStrings, FlexibleInstances
+  ghc-options: -Wall -Wcompat
 
 source-repository head
   type:     git
