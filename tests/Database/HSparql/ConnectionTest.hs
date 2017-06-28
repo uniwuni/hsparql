@@ -58,13 +58,13 @@ test_askQuery = do
               return AskQuery { queryAsk = [ask] }
 
 test_constructQuery =
-  let expectedGraph :: RDF.TriplesList
+  let expectedGraph :: RDF.RDF RDF.TList
       expectedGraph = RDF.mkRdf expectedTriples Nothing (RDF.PrefixMappings Map.empty)
       expectedTriples = [ RDF.Triple (RDF.unode "http://dbpedia.org/resource/Kazehakase")
                                      (RDF.unode "http://www.example.com/hasName")
                                      (RDF.lnode $ RDF.plainLL "Kazehakase" "en") ]
   in do
-    graph <- constructQuery endPoint query :: IO RDF.TriplesList
+    graph <- constructQuery endPoint query :: IO (RDF.RDF RDF.TList)
     assertBool "RDF does not include the constructed triple" $ RDF.isIsomorphic expectedGraph graph
 
     where endPoint = "http://127.0.0.1:3000"
@@ -86,7 +86,7 @@ test_constructQuery =
 test_describeQuery =
   let expectedNode = RDF.unode "http://dbpedia.org/resource/Edinburgh"
   in do
-    graph <- describeQuery endPoint query :: IO RDF.TriplesList
+    graph <- describeQuery endPoint query :: IO (RDF.RDF RDF.TList)
     assertBool "RDF does not include the required node" $ RDF.rdfContainsNode graph expectedNode
 
     where endPoint = "http://127.0.0.1:3000"
