@@ -15,7 +15,7 @@ import Network.HTTP
 import Text.XML.Light
 import Database.HSparql.QueryGenerator
 import Text.RDF.RDF4H.TurtleParser
-import Data.RDF
+import qualified Data.RDF as RDF
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import qualified Data.ByteString.Char8 as B
@@ -26,7 +26,7 @@ import Network.URI hiding (URI)
 type EndPoint = String
 
 -- |Local representations of incoming XML results.
-data BindingValue = Bound Data.RDF.Node    -- ^RDF Node (UNode, BNode, LNode)
+data BindingValue = Bound RDF.Node    -- ^RDF Node (UNode, BNode, LNode)
                   | Unbound       -- ^Unbound result value
                   deriving (Show, Eq)
 
@@ -55,12 +55,12 @@ structureContent s =
         value :: Element -> BindingValue
         value e =
           case qName (elName e) of
-            "uri"     -> Bound $ Data.RDF.unode $ (T.pack $ strContent e)
+            "uri"     -> Bound $ RDF.unode $ (T.pack $ strContent e)
             "literal" -> case findAttr (unqual "datatype") e of
-                           Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (T.pack $ strContent e) (T.pack dt)
+                           Just dt -> Bound $ RDF.lnode $ RDF.typedL (T.pack $ strContent e) (T.pack dt)
                            Nothing -> case findAttr langAttr e of
-                                        Just lang_ -> Bound $ Data.RDF.lnode $ Data.RDF.plainLL (T.pack $ strContent e) (T.pack lang_)
-                                        Nothing    -> Bound $ Data.RDF.lnode $ Data.RDF.plainL (T.pack $ strContent e)
+                                        Just lang_ -> Bound $ RDF.lnode $ RDF.plainLL (T.pack $ strContent e) (T.pack lang_)
+                                        Nothing    -> Bound $ RDF.lnode $ RDF.plainL (T.pack $ strContent e)
             -- TODO: what about blank nodes?
             _         -> Unbound
 
@@ -129,7 +129,7 @@ updateQuery ep q = do
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-constructQuery :: (Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF a)
+constructQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF.RDF a)
 constructQuery ep q = do
   let uri = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
   rdfGraph <- httpCallForRdf uri
@@ -139,7 +139,7 @@ constructQuery ep q = do
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-describeQuery :: (Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF a)
+describeQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF.RDF a)
 describeQuery ep q = do
   let uri = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
   rdfGraph <- httpCallForRdf uri
@@ -149,7 +149,7 @@ describeQuery ep q = do
 
 -- |Takes a generated uri and makes simple HTTP request,
 -- asking for RDF N3 serialization. Returns either 'ParseFailure' or 'RDF'
-httpCallForRdf :: Rdf a => String -> IO (Either ParseFailure (RDF a))
+httpCallForRdf :: RDF.Rdf a => String -> IO (Either RDF.ParseFailure (RDF.RDF a))
 httpCallForRdf uri = do
   let h1 = mkHeader HdrUserAgent "hsparql-client"
       h2 = mkHeader HdrAccept "text/turtle"
@@ -159,4 +159,4 @@ httpCallForRdf uri = do
                           , rqBody = ""
                           }
   response <- simpleHTTP request >>= getResponseBody
-  return $ parseString (TurtleParser Nothing Nothing) $ E.decodeUtf8 (B.pack response)
+  return $ RDF.parseString (TurtleParser Nothing Nothing) $ E.decodeUtf8 (B.pack response)

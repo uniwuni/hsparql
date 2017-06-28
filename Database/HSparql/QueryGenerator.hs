@@ -85,7 +85,7 @@ where
 import Control.Monad.State
 import Data.List (intercalate)
 import qualified Data.Text as T
-import Data.RDF hiding (query)
+import qualified Data.RDF as RDF
 
 -- State monads
 
@@ -284,13 +284,13 @@ instance TermLike Integer where
   expr = NumericExpr . NumericLiteralExpr
 
 instance TermLike T.Text where
-  varOrTerm = Term . RDFLiteralTerm . plainL
+  varOrTerm = Term . RDFLiteralTerm . RDF.plainL
 
 instance TermLike (T.Text, T.Text) where
-  varOrTerm (s, lang') = Term . RDFLiteralTerm $ plainLL s lang'
+  varOrTerm (s, lang') = Term . RDFLiteralTerm $ RDF.plainLL s lang'
 
 instance TermLike (T.Text, IRIRef) where
-  varOrTerm (s, ref) = Term . RDFLiteralTerm $ typedL s (getFQN ref)
+  varOrTerm (s, ref) = Term . RDFLiteralTerm $ RDF.typedL s (getFQN ref)
 
 instance TermLike Bool where
   varOrTerm = Term . BooleanLiteralTerm
@@ -481,28 +481,28 @@ data Duplicates = NoLimits | Distinct | Reduced
 data Limit = NoLimit | Limit Int
            deriving (Show)
 
-data Prefix = Prefix T.Text Node
+data Prefix = Prefix T.Text RDF.Node
             deriving (Show)
 
 data Variable = Variable Int
               deriving (Show)
 
-data IRIRef = AbsoluteIRI Node
+data IRIRef = AbsoluteIRI RDF.Node
             | PrefixedName Prefix T.Text
             deriving (Show)
 
 iriRef :: T.Text -> IRIRef
-iriRef uri = AbsoluteIRI $ unode uri
+iriRef uri = AbsoluteIRI $ RDF.unode uri
 
 getFQN :: IRIRef -> T.Text
-getFQN (AbsoluteIRI (UNode n)) = n
-getFQN (PrefixedName (Prefix _ (UNode n)) s) = T.append n s
+getFQN (AbsoluteIRI (RDF.UNode n)) = n
+getFQN (PrefixedName (Prefix _ (RDF.UNode n)) s) = T.append n s
 -- FIXME
 getFQN _ = error "getFQN: input not supported"
 
--- Should support numeric literals, too
+-- FIXME: Should support numeric literals, too
 data GraphTerm = IRIRefTerm IRIRef
-               | RDFLiteralTerm LValue
+               | RDFLiteralTerm RDF.LValue
                | NumericLiteralTerm Integer
                | BooleanLiteralTerm Bool
                deriving (Show)
@@ -515,7 +515,7 @@ data VarOrTerm = Var Variable
 -- advance which parts of the triple will be variables and which will be
 -- 'Node's.
 data VarOrNode = Var' Variable
-               | RDFNode Node
+               | RDFNode RDF.Node
                deriving (Show)
 
 data Operation = Add | Subtract | Multiply | Divide | And | Or
@@ -610,16 +610,16 @@ instance QueryShow Limit where
   qshow NoLimit   = ""
   qshow (Limit n) = "Limit " ++ show n
 
-instance QueryShow Node where
-  qshow (UNode n) = "<" ++ T.unpack n ++ ">"
-  qshow (BNode n) = "_:" ++ T.unpack n
-  qshow (BNodeGen i) = "_:genid" ++ show i
-  qshow (LNode n) = qshow n
+instance QueryShow RDF.Node where
+  qshow (RDF.UNode n) = "<" ++ T.unpack n ++ ">"
+  qshow (RDF.BNode n) = "_:" ++ T.unpack n
+  qshow (RDF.BNodeGen i) = "_:genid" ++ show i
+  qshow (RDF.LNode n) = qshow n
 
-instance QueryShow LValue where
-  qshow (PlainL lit)       = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\""]
-  qshow (PlainLL lit lang_) = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\"@", lang_]
-  qshow (TypedL lit dtype) = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\"^^<", dtype, ">"]
+instance QueryShow RDF.LValue where
+  qshow (RDF.PlainL lit)       = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\""]
+  qshow (RDF.PlainLL lit lang_) = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\"@", lang_]
+  qshow (RDF.TypedL lit dtype) = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\"^^<", dtype, ">"]
 
 instance QueryShow Prefix where
   qshow (Prefix pre ref) = "PREFIX " ++ (T.unpack pre) ++ ": " ++ qshow ref
@@ -707,8 +707,8 @@ instance QueryShow OrderBy where
 instance QueryShow QueryForm where
   qshow (SelectForm qd) =  unwords
                         [ "SELECT"
-                         , qshow (duplicates qd)
-                         , qshow (vars qd)
+                        , qshow (duplicates qd)
+                        , qshow (vars qd)
                         ]
   qshow (ConstructForm qd) = "CONSTRUCT { " ++ qshow (constructTriples qd) ++ " }"
   qshow (AskForm qd) = "ASK { " ++ qshow (askTriples qd) ++ " }"
