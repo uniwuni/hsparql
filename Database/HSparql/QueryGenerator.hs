@@ -632,7 +632,7 @@ data DescribeQuery = DescribeQuery
 -- QueryShow instances
 instance QueryShow BlankNodePattern where
   qshow [] = "[]"
-  qshow xs = intercalate "; " $ fmap qshow xs
+  qshow xs = intercalate ", " $ fmap qshow xs
 
 instance QueryShow DynamicPredicateObject where
   qshow (DynamicPredicate p, DynamicObject o) = mconcat ["[", qshow p, " ", qshow o, "]"]
