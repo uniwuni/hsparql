@@ -76,6 +76,9 @@ module Database.HSparql.QueryGenerator
 
   -- * Classes
   , TermLike (..)
+  , SubjectTermLike
+  , PredicateTermLike
+  , ObjectTermLike
   )
 where
 
@@ -152,26 +155,26 @@ var = do n <- gets varsIdx
 
 -- |Restrict the query to only results for which values match constants in this
 --  triple, or for which the variables can be bound.
-triple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+triple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 triple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
   modify $ \s -> s { pattern = appendPattern t (pattern s) }
   return t
 
 
-constructTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+constructTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 constructTriple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
   modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
   return t
 
-askTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+askTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 askTriple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
   modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
   return t
 
-updateTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
+updateTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 updateTriple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c) -- TODO: should only allow terms
   modify $ \s -> s { updateTriples = appendTriple t (updateTriples s) }
@@ -258,8 +261,8 @@ orderNextAsc x  = modify $ \s -> s { ordering = ordering s ++ [Asc  $ expr x] }
 orderNextDesc :: (TermLike a) => a -> Query ()
 orderNextDesc x = modify $ \s -> s { ordering = ordering s ++ [Desc $ expr x] }
 
--- Permit variables and values to seemlessly be put into argument for 'triple'
--- and similar functions
+-- |Permit variables and values to seemlessly be put into argument for 'triple'
+--  and similar functions
 class TermLike a where
   varOrTerm :: a -> VarOrTerm
 
@@ -296,8 +299,33 @@ instance TermLike VarOrNode where
   varOrTerm (Var' v)              = Var v
   varOrTerm (RDFNode n@(UNode _)) = (Term . IRIRefTerm . AbsoluteIRI) n
   varOrTerm (RDFNode (LNode lv))  = (Term . RDFLiteralTerm) lv
-  -- TODO: non-exhaustive: missing BNode, BNodeGen
+  -- FIXME: non-exhaustive: missing BNode, BNodeGen
   varOrTerm _ = error "BNode and BNodeGen are not supported yet."
+
+-- |Restriction of TermLike to the role of subject.
+class (TermLike a) => SubjectTermLike a
+
+instance SubjectTermLike IRIRef
+instance SubjectTermLike Variable
+
+-- |Restriction of TermLike to the role of predicate.
+class (TermLike a) => PredicateTermLike a
+
+instance PredicateTermLike IRIRef
+instance PredicateTermLike Variable
+
+-- |Restriction of TermLike to the role of object.
+class (TermLike a) => ObjectTermLike a
+
+instance ObjectTermLike IRIRef
+instance ObjectTermLike Variable
+instance ObjectTermLike Expr
+instance ObjectTermLike Integer
+instance ObjectTermLike T.Text
+instance ObjectTermLike (T.Text, T.Text)
+instance ObjectTermLike (T.Text, IRIRef)
+instance ObjectTermLike Bool
+instance ObjectTermLike VarOrNode
 
 -- Operations
 operation :: (TermLike a, TermLike b) => Operation -> a -> b -> Expr
