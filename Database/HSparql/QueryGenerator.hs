@@ -1,89 +1,88 @@
-
 -- |The query generator DSL for SPARQL, used when connecting to remote
 --  endpoints.
 module Database.HSparql.QueryGenerator
-    ( -- * Creating Queries
-      createSelectQuery
-    , createConstructQuery
-    , createAskQuery
-    , createUpdateQuery
-    , createDescribeQuery
-    -- * Query Actions
-    , prefix
-    , var
-    , Database.HSparql.QueryGenerator.triple
-    , constructTriple
-    , askTriple
-    , updateTriple
-    , describeIRI
-    , optional
-    , union
-    , filterExpr
-    , bind
+  ( -- * Creating Queries
+    createSelectQuery
+  , createConstructQuery
+  , createAskQuery
+  , createUpdateQuery
+  , createDescribeQuery
+  -- * Query Actions
+  , prefix
+  , var
+  , Database.HSparql.QueryGenerator.triple
+  , constructTriple
+  , askTriple
+  , updateTriple
+  , describeIRI
+  , optional
+  , union
+  , filterExpr
+  , bind
 
-    -- ** Duplicate handling
-    , distinct
-    , reduced
+  -- ** Duplicate handling
+  , distinct
+  , reduced
 
-    -- ** Limit handling
-    , limit
+  -- ** Limit handling
+  , limit
 
-    -- ** Order handling
-    , orderNext
-    , orderNextAsc
-    , orderNextDesc
+  -- ** Order handling
+  , orderNext
+  , orderNextAsc
+  , orderNextDesc
 
-    -- ** Auxiliary
-    , (.:.)
-    , iriRef
+  -- ** Auxiliary
+  , (.:.)
+  , iriRef
 
-    -- * Term Manipulation
+  -- * Term Manipulation
 
-    -- ** Operations
-    , (.+.), (.-.), (.*.), (./.), (.&&.), (.||.)
+  -- ** Operations
+  , (.+.), (.-.), (.*.), (./.), (.&&.), (.||.)
 
-    -- ** Relations
-    , (.==.), (.!=.), (.<.), (.>.), (.<=.), (.>=.)
+  -- ** Relations
+  , (.==.), (.!=.), (.<.), (.>.), (.<=.), (.>=.)
 
-    -- ** Negation
-    , notExpr
+  -- ** Negation
+  , notExpr
 
-    -- ** Builtin Functions
-    , str
-    , lang
-    , langMatches
-    , datatype
-    , bound
-    , sameTerm
-    , isIRI
-    , isURI
-    , isBlank
-    , isLiteral
-    , regex, regexOpts
+  -- ** Builtin Functions
+  , str
+  , lang
+  , langMatches
+  , datatype
+  , bound
+  , sameTerm
+  , isIRI
+  , isURI
+  , isBlank
+  , isLiteral
+  , regex, regexOpts
 
-    -- * Printing Queries
-    , qshow
+  -- * Printing Queries
+  , qshow
 
-    -- * Types
-    , Query
-    , Variable
-    , VarOrNode(..)
-    , Pattern
-    , SelectQuery(..)
-    , ConstructQuery(..)
-    , AskQuery(..)
-    , UpdateQuery(..)
-    , DescribeQuery(..)
+  -- * Types
+  , Query
+  , Variable
+  , VarOrNode(..)
+  , Pattern
+  , SelectQuery(..)
+  , ConstructQuery(..)
+  , AskQuery(..)
+  , UpdateQuery(..)
+  , DescribeQuery(..)
 
-    -- * Classes
-    , TermLike (..)
-    )
+  -- * Classes
+  , TermLike (..)
+  )
 where
 
 import Control.Monad.State
 import Data.List (intercalate)
 import qualified Data.Text as T
-import Data.RDF
+import Data.RDF hiding (query)
 
 -- State monads
 
@@ -98,50 +97,52 @@ execQuery q f = f $ execState q queryData
 -- |Execute a 'Select Query' action, returning the 'String' representation of the query.
 createSelectQuery :: Query SelectQuery -> String
 createSelectQuery q = execQuery specifyVars qshow
-    where specifyVars :: Query ()
-          specifyVars = do query <- q
-                           modify $ \s -> s { vars = queryVars query , queryType = SelectType }
+  where specifyVars :: Query ()
+        specifyVars = do
+          query <- q
+          modify $ \s -> s { vars = queryVars query , queryType = SelectType }
 
 -- |Execute a 'Construct Query' action, returning the 'String' representation of the query.
 createConstructQuery :: Query ConstructQuery -> String
 createConstructQuery q = execQuery specifyType qshow
-    where specifyType :: Query ()
-          specifyType = do
-           query <- q
-           modify $ \s -> s { constructTriples = queryConstructs query, queryType = ConstructType }
+  where specifyType :: Query ()
+        specifyType = do
+          query <- q
+          modify $ \s -> s { constructTriples = queryConstructs query, queryType = ConstructType }
 
 -- |Execute a 'Ask Query' action, returning the 'String' representation of the query.
 createAskQuery :: Query AskQuery -> String
 createAskQuery q = execQuery specifyType qshow
-    where specifyType :: Query ()
-          specifyType = do
-           query <- q
-           modify $ \s -> s { askTriples = queryAsk query, queryType = AskType }
+  where specifyType :: Query ()
+        specifyType = do
+          query <- q
+          modify $ \s -> s { askTriples = queryAsk query, queryType = AskType }
 
 -- |Execute a 'Update Query' action, returning the 'String' representation of the query.
 createUpdateQuery :: Query UpdateQuery -> String
 createUpdateQuery q = execQuery specifyType qshow
-    where specifyType :: Query ()
-          specifyType = do
-           query <- q
-           modify $ \s -> s { updateTriples = queryUpdate query, queryType = UpdateType }
+  where specifyType :: Query ()
+        specifyType = do
+          query <- q
+          modify $ \s -> s { updateTriples = queryUpdate query, queryType = UpdateType }
 
 -- |Execute a 'Describe Query' action, returning the 'String' representation of the query.
 createDescribeQuery :: Query DescribeQuery -> String
 createDescribeQuery q = execQuery specifyType qshow
-    where specifyType :: Query ()
-          specifyType = do
-           query <- q
-           modify $ \s -> s { describeURI = Just (queryDescribe query), queryType = DescribeType }
+  where specifyType :: Query ()
+        specifyType = do
+          query <- q
+          modify $ \s -> s { describeURI = Just (queryDescribe query), queryType = DescribeType }
 
 -- Manipulate data within monad
 
 -- |Add a prefix to the query, given an IRI reference, and return it.
 prefix :: T.Text -> IRIRef -> Query Prefix
 prefix pre (AbsoluteIRI node) = do
-                let p = Prefix pre node
-                modify $ \s -> s { prefixes = p : prefixes s }
-                return p
+  let p = Prefix pre node
+  modify $ \s -> s { prefixes = p : prefixes s }
+  return p
+prefix _ _ = error "prefix requires an absolute IRI"
 
 -- |Create and return a variable to the query, usable in later expressions.
 var :: Query Variable
@@ -153,33 +154,33 @@ var = do n <- gets varsIdx
 --  triple, or for which the variables can be bound.
 triple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 triple a b c = do
-    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
-    modify $ \s -> s { pattern = appendPattern t (pattern s) }
-    return t
+  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+  modify $ \s -> s { pattern = appendPattern t (pattern s) }
+  return t
 
 
 constructTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 constructTriple a b c = do
-    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
-    modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
-    return t
+  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+  modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
+  return t
 
 askTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 askTriple a b c = do
-    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
-    modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
-    return t
+  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+  modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
+  return t
 
 updateTriple :: (TermLike a, TermLike b, TermLike c) => a -> b -> c -> Query Pattern
 updateTriple a b c = do
-    let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c) -- TODO: should only allow terms
-    modify $ \s -> s { updateTriples = appendTriple t (updateTriples s) }
-    return t
+  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c) -- TODO: should only allow terms
+  modify $ \s -> s { updateTriples = appendTriple t (updateTriples s) }
+  return t
 
 describeIRI :: IRIRef -> Query IRIRef
 describeIRI newIri = do
-    modify $ \s -> s { describeURI = Just newIri }
-    return newIri
+  modify $ \s -> s { describeURI = Just newIri }
+  return newIri
 
 
 -- |Add optional constraints on matches. Variable bindings within the optional
@@ -187,28 +188,28 @@ describeIRI newIri = do
 --  optional block.
 optional :: Query a -> Query Pattern
 optional q = do
-    -- Determine the patterns by executing the action on a blank QueryData, and
-    -- then pulling the patterns out from there.
-    let option  = execQuery q $ OptionalGraphPattern . pattern
-    modify $ \s -> s { pattern = appendPattern option (pattern s) }
-    return option
+  -- Determine the patterns by executing the action on a blank QueryData, and
+  -- then pulling the patterns out from there.
+  let option  = execQuery q $ OptionalGraphPattern . pattern
+  modify $ \s -> s { pattern = appendPattern option (pattern s) }
+  return option
 
 -- |Add a union structure to the query pattern. As with 'optional' blocks,
 --  variables must be defined prior to the opening of any block.
 union :: Query a -> Query b -> Query Pattern
 union q1 q2 = do
-    let p1    = execQuery q1 pattern
-        p2    = execQuery q2 pattern
-        union' = UnionGraphPattern p1 p2
-    modify $ \s -> s { pattern = appendPattern union' (pattern s) }
-    return union'
+  let p1    = execQuery q1 pattern
+      p2    = execQuery q2 pattern
+      union' = UnionGraphPattern p1 p2
+  modify $ \s -> s { pattern = appendPattern union' (pattern s) }
+  return union'
 
 -- |Restrict results to only those for which the given expression is true.
 filterExpr :: (TermLike a) => a -> Query Pattern
 filterExpr e = do
-    let f = Filter (expr e)
-    modify $ \s -> s { pattern = appendPattern f (pattern s) }
-    return f
+  let f = Filter (expr e)
+  modify $ \s -> s { pattern = appendPattern f (pattern s) }
+  return f
 
 bind :: Expr -> Variable -> Query Pattern
 bind e v = do
@@ -296,6 +297,7 @@ instance TermLike VarOrNode where
   varOrTerm (RDFNode n@(UNode _)) = (Term . IRIRefTerm . AbsoluteIRI) n
   varOrTerm (RDFNode (LNode lv))  = (Term . RDFLiteralTerm) lv
   -- TODO: non-exhaustive: missing BNode, BNodeGen
+  varOrTerm _ = error "BNode and BNodeGen are not supported yet."
 
 -- Operations
 operation :: (TermLike a, TermLike b) => Operation -> a -> b -> Expr
@@ -439,7 +441,6 @@ queryData = QueryData
     }
 
 
-
 -- Query representation
 class QueryShow a where
   -- |Convert most query-related types to a 'String', most importantly
@@ -468,6 +469,8 @@ iriRef uri = AbsoluteIRI $ unode uri
 getFQN :: IRIRef -> T.Text
 getFQN (AbsoluteIRI (UNode n)) = n
 getFQN (PrefixedName (Prefix _ (UNode n)) s) = T.append n s
+-- FIXME
+getFQN _ = error "getFQN: input not supported"
 
 -- Should support numeric literals, too
 data GraphTerm = IRIRefTerm IRIRef
@@ -516,6 +519,7 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Bind Expr Variable
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
+
 data GroupGraphPattern = GroupGraphPattern [Pattern]
 
 data OrderBy = Asc Expr
@@ -580,6 +584,14 @@ instance QueryShow Limit where
 
 instance QueryShow Node where
   qshow (UNode n) = "<" ++ T.unpack n ++ ">"
+  qshow (BNode n) = "_:" ++ T.unpack n
+  qshow (BNodeGen i) = "_:genid" ++ show i
+  qshow (LNode n) = qshow n
+
+instance QueryShow LValue where
+  qshow (PlainL lit)       = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\""]
+  qshow (PlainLL lit lang_) = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\"@", lang_]
+  qshow (TypedL lit dtype) = T.unpack . T.concat $ ["\"", escapeSpecialChar lit, "\"^^<", dtype, ">"]
 
 instance QueryShow Prefix where
   qshow (Prefix pre ref) = "PREFIX " ++ (T.unpack pre) ++ ": " ++ qshow ref
@@ -595,16 +607,11 @@ instance QueryShow (Maybe IRIRef) where
   qshow (Just r) = qshow r
   qshow Nothing = ""
 
-instance QueryShow LValue where
-  qshow (PlainL s)        = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\""
-  qshow (PlainLL s lang') = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"@" ++ (T.unpack lang')
-  qshow (TypedL s ref)    = "\"" ++ (T.unpack $ escapeQuotes s) ++ "\"^^" ++ "<" ++ (T.unpack ref) ++ ">"
-
 instance QueryShow GraphTerm where
   qshow (IRIRefTerm ref)           = qshow ref
   qshow (RDFLiteralTerm s)         = qshow s
-  qshow (BooleanLiteralTerm True)  = show "true"
-  qshow (BooleanLiteralTerm False) = show "false"
+  qshow (BooleanLiteralTerm True)  = show ("true" :: String)
+  qshow (BooleanLiteralTerm False) = show ("false" :: String)
   qshow (NumericLiteralTerm i)     = show i
 
 instance QueryShow VarOrTerm where
@@ -645,20 +652,20 @@ instance QueryShow Function where
   qshow RegexFunc       = "REGEX"
 
 instance QueryShow Expr where
-  qshow (VarOrTermExpr vt) = qshow vt
-  qshow e = "(" ++ qshow' e ++ ")"
-    where qshow' (OrExpr es)        = intercalate " || " $ map qshow es
-          qshow' (AndExpr es)       = intercalate " && " $ map qshow es
-          qshow' (NegatedExpr e')   = '!' : qshow e'
-          qshow' (RelationalExpr rel e1 e2) = qshow e1 ++ qshow rel ++ qshow e2
-          qshow' (NumericExpr e')   = qshow e'
-          qshow' (BuiltinCall f es) = qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
+  qshow = qshow'
+    where qshow' (VarOrTermExpr vt) = qshow vt
+          qshow' (OrExpr es)        = wrap $ intercalate " || " $ map qshow es
+          qshow' (AndExpr es)       = wrap $ intercalate " && " $ map qshow es
+          qshow' (NegatedExpr e')   = wrap $ '!' : qshow e'
+          qshow' (RelationalExpr rel e1 e2) = wrap $ qshow e1 ++ qshow rel ++ qshow e2
+          qshow' (NumericExpr e')   = wrap $ qshow e'
+          qshow' (BuiltinCall f es) = wrap $ qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
+          wrap e = "(" ++ e ++ ")"
 
 instance QueryShow Pattern where
   qshow (QTriple a b c) = qshow [a, b, c] ++ " ."
   qshow (Filter e)      = "FILTER " ++ qshow e ++ " ."
   qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
-
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
 
@@ -669,20 +676,15 @@ instance QueryShow OrderBy where
   qshow (Asc e)  = "ASC(" ++ qshow e ++ ")"
   qshow (Desc e) = "DESC(" ++ qshow e ++ ")"
 
-
 instance QueryShow QueryForm where
   qshow (SelectForm qd) =  unwords
                         [ "SELECT"
                          , qshow (duplicates qd)
                          , qshow (vars qd)
                         ]
-
   qshow (ConstructForm qd) = "CONSTRUCT { " ++ qshow (constructTriples qd) ++ " }"
-
   qshow (AskForm qd) = "ASK { " ++ qshow (askTriples qd) ++ " }"
-
   qshow (UpdateForm qd) = "INSERT DATA { " ++ qshow (updateTriples qd) ++ " }"
-
   qshow (DescribeForm qd) = "DESCRIBE " ++ qshow (describeURI qd)
 
 instance QueryShow QueryData where
@@ -718,9 +720,19 @@ instance QueryShow QueryData where
                    unwords [ qshow (prefixes qd)
                            , qshow (UpdateForm qd)
                            ]
+                  -- FIXME
+                  TypeNotSet ->
+                    error "instance QueryShow QueryData: TypeNotSet not supported."
              in query
 
 
 -- Internal utilities
-escapeQuotes :: T.Text -> T.Text
-escapeQuotes = T.replace "\"" "\\\""
+escapeSpecialChar :: T.Text -> T.Text
+escapeSpecialChar = T.concatMap handleChar
+  -- FIXME: probably more cases to handle
+  where handleChar '\n' = "\n"
+        handleChar '\t' = "\t"
+        handleChar '\r' = "\r"
+        handleChar '"'  = "\\\""
+        handleChar '\\' = "\\\\"
+        handleChar c    = T.singleton c
