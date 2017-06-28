@@ -1,3 +1,5 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 -- |The query generator DSL for SPARQL, used when connecting to remote
 --  endpoints.
 module Database.HSparql.QueryGenerator
@@ -11,6 +13,7 @@ module Database.HSparql.QueryGenerator
   , prefix
   , var
   , Database.HSparql.QueryGenerator.triple
+  , mkPredicateObject
   , constructTriple
   , askTriple
   , updateTriple
@@ -67,6 +70,7 @@ module Database.HSparql.QueryGenerator
   , Query
   , Variable
   , VarOrNode(..)
+  , BlankNodePattern
   , Pattern
   , SelectQuery(..)
   , ConstructQuery(..)
@@ -160,7 +164,6 @@ triple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
   modify $ \s -> s { pattern = appendPattern t (pattern s) }
   return t
-
 
 constructTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 constructTriple a b c = do
@@ -275,6 +278,13 @@ instance TermLike Variable where
 instance TermLike IRIRef where
   varOrTerm = Term . IRIRefTerm
 
+instance TermLike BlankNodePattern where
+  varOrTerm [] = Term (BNode Nothing)
+  varOrTerm xs = BlankNodePattern' xs
+
+  expr [] = error "FIXME: blank node expression"
+  expr _ = error "cannot use a blank node pattern as an expression"
+
 instance TermLike Expr where
   varOrTerm = error "cannot use an expression as a term"
   expr = id
@@ -295,18 +305,22 @@ instance TermLike (T.Text, IRIRef) where
 instance TermLike Bool where
   varOrTerm = Term . BooleanLiteralTerm
 
+instance TermLike RDF.Node where
+  varOrTerm n@(RDF.UNode _)  = Term . IRIRefTerm . AbsoluteIRI $ n
+  varOrTerm (RDF.LNode lv)   = Term . RDFLiteralTerm $ lv
+  varOrTerm (RDF.BNode i)    = Term . BNode . Just $ i
+  varOrTerm (RDF.BNodeGen i) = Term . BNode . Just . T.pack . mconcat $ ["genid", show i]
+
 instance TermLike VarOrNode where
-  varOrTerm (Var' v)              = Var v
-  varOrTerm (RDFNode n@(UNode _)) = (Term . IRIRefTerm . AbsoluteIRI) n
-  varOrTerm (RDFNode (LNode lv))  = (Term . RDFLiteralTerm) lv
-  -- FIXME: non-exhaustive: missing BNode, BNodeGen
-  varOrTerm _ = error "BNode and BNodeGen are not supported yet."
+  varOrTerm (Var' v) = Var v
+  varOrTerm (RDFNode n) = varOrTerm n
 
 -- |Restriction of TermLike to the role of subject.
 class (TermLike a) => SubjectTermLike a
 
 instance SubjectTermLike IRIRef
 instance SubjectTermLike Variable
+instance SubjectTermLike BlankNodePattern
 
 -- |Restriction of TermLike to the role of predicate.
 class (TermLike a) => PredicateTermLike a
@@ -319,6 +333,7 @@ class (TermLike a) => ObjectTermLike a
 
 instance ObjectTermLike IRIRef
 instance ObjectTermLike Variable
+instance ObjectTermLike BlankNodePattern
 instance ObjectTermLike Expr
 instance ObjectTermLike Integer
 instance ObjectTermLike T.Text
@@ -326,6 +341,7 @@ instance ObjectTermLike (T.Text, T.Text)
 instance ObjectTermLike (T.Text, IRIRef)
 instance ObjectTermLike Bool
 instance ObjectTermLike VarOrNode
+instance ObjectTermLike RDF.Node
 
 -- Operations
 operation :: (TermLike a, TermLike b) => Operation -> a -> b -> Expr
@@ -487,6 +503,20 @@ data Prefix = Prefix T.Text RDF.Node
 data Variable = Variable Int
               deriving (Show)
 
+data DynamicPredicate = forall a. (PredicateTermLike a, QueryShow a, Show a) => DynamicPredicate a
+data DynamicObject = forall a. (ObjectTermLike a, QueryShow a, Show a) => DynamicObject a
+type DynamicPredicateObject = (DynamicPredicate, DynamicObject)
+type BlankNodePattern = [DynamicPredicateObject]
+
+instance Show DynamicPredicate where
+  show (DynamicPredicate a) = show a
+
+instance Show DynamicObject where
+  show (DynamicObject a) = show a
+
+mkPredicateObject :: (PredicateTermLike a, ObjectTermLike b, QueryShow a, QueryShow b, Show a, Show b) => a -> b -> DynamicPredicateObject
+mkPredicateObject p o = (DynamicPredicate p, DynamicObject o)
+
 data IRIRef = AbsoluteIRI RDF.Node
             | PrefixedName Prefix T.Text
             deriving (Show)
@@ -505,10 +535,12 @@ data GraphTerm = IRIRefTerm IRIRef
                | RDFLiteralTerm RDF.LValue
                | NumericLiteralTerm Integer
                | BooleanLiteralTerm Bool
+               | BNode (Maybe T.Text)
                deriving (Show)
 
 data VarOrTerm = Var Variable
                | Term GraphTerm
+               | BlankNodePattern' BlankNodePattern
                deriving (Show)
 
 -- |Enables programmatic construction of triples where it is not known in
@@ -598,8 +630,12 @@ data DescribeQuery = DescribeQuery
 
 
 -- QueryShow instances
-instance (QueryShow a) => QueryShow [a] where
-  qshow xs = unwords $ map qshow xs
+instance QueryShow BlankNodePattern where
+  qshow [] = "[]"
+  qshow xs = intercalate "; " $ fmap qshow xs
+
+instance QueryShow DynamicPredicateObject where
+  qshow (DynamicPredicate p, DynamicObject o) = mconcat ["[", qshow p, " ", qshow o, "]"]
 
 instance QueryShow Duplicates where
   qshow NoLimits = ""
@@ -624,8 +660,14 @@ instance QueryShow RDF.LValue where
 instance QueryShow Prefix where
   qshow (Prefix pre ref) = "PREFIX " ++ (T.unpack pre) ++ ": " ++ qshow ref
 
+instance QueryShow [Prefix] where
+  qshow = unwords . fmap qshow
+
 instance QueryShow Variable where
   qshow (Variable v) = "?x" ++ show v
+
+instance QueryShow [Variable] where
+  qshow = unwords . fmap qshow
 
 instance QueryShow IRIRef where
   qshow (AbsoluteIRI n) = qshow n
@@ -641,10 +683,16 @@ instance QueryShow GraphTerm where
   qshow (BooleanLiteralTerm True)  = show ("true" :: String)
   qshow (BooleanLiteralTerm False) = show ("false" :: String)
   qshow (NumericLiteralTerm i)     = show i
+  qshow (BNode Nothing)            = "[]"
+  qshow (BNode (Just i))           = "_:" ++ T.unpack i
 
 instance QueryShow VarOrTerm where
   qshow (Var  v) = qshow v
   qshow (Term t) = qshow t
+  qshow (BlankNodePattern' bn) = qshow bn
+
+instance QueryShow [VarOrTerm] where
+  qshow = unwords . fmap qshow
 
 instance QueryShow Operation where
   qshow Add      = "+"
@@ -691,11 +739,14 @@ instance QueryShow Expr where
           wrap e = "(" ++ e ++ ")"
 
 instance QueryShow Pattern where
-  qshow (QTriple a b c) = qshow [a, b, c] ++ " ."
+  qshow (QTriple a b c) = intercalate " " [qshow a, qshow b, qshow c, "."]
   qshow (Filter e)      = "FILTER " ++ qshow e ++ " ."
   qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
+
+instance QueryShow [Pattern] where
+  qshow = unwords . fmap qshow
 
 instance QueryShow GroupGraphPattern where
   qshow (GroupGraphPattern ps) = "{" ++ qshow ps ++ "}"
