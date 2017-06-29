@@ -1,16 +1,16 @@
 module Database.HSparql.ConnectionTest ( testSuite ) where
 
-import Test.Framework (testGroup)
+import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit
 
 import qualified Data.Map as Map
-import qualified Data.Text as T
 import qualified Data.RDF as RDF
 
 import Database.HSparql.Connection
 import Database.HSparql.QueryGenerator
 
+testSuite :: [Test.Framework.Test]
 testSuite = [
     testGroup "Database.HSparql.Connection tests" [
         testCase "selectQuery" test_selectQuery
@@ -20,6 +20,7 @@ testSuite = [
     ]
   ]
 
+test_selectQuery :: IO ()
 test_selectQuery =
   let expectedBVars = Just [ [ Bound $ RDF.lnode $ RDF.plainLL "Kazehakase" "en" ]
                            , [ Bound $ RDF.lnode $ RDF.plainLL "Netscape Browser" "en" ]
@@ -38,33 +39,35 @@ test_selectQuery =
               x    <- var
               name <- var
 
-              triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
-              triple x (foaf .:. "name") name
+              _ <- triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
+              _ <- triple x (foaf .:. "name") name
 
               return SelectQuery { queryVars = [name] }
 
+test_askQuery :: IO ()
 test_askQuery = do
-    bool <- askQuery endPoint query
-    assertBool "invalid" bool
+  bool <- askQuery endPoint query
+  assertBool "invalid" bool
 
-    where endPoint = "http://127.0.0.1:3000"
-          query = do
-              resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
-              dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
+  where endPoint = "http://127.0.0.1:3000"
+        query = do
+            resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
+            dbprop  <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
 
-              x <- var
-              ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
+            x <- var
+            ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
 
-              return AskQuery { queryAsk = [ask] }
+            return AskQuery { queryAsk = [ask] }
 
+test_constructQuery :: IO ()
 test_constructQuery =
-  let expectedGraph :: RDF.TriplesList
+  let expectedGraph :: RDF.RDF RDF.TList
       expectedGraph = RDF.mkRdf expectedTriples Nothing (RDF.PrefixMappings Map.empty)
       expectedTriples = [ RDF.Triple (RDF.unode "http://dbpedia.org/resource/Kazehakase")
                                      (RDF.unode "http://www.example.com/hasName")
                                      (RDF.lnode $ RDF.plainLL "Kazehakase" "en") ]
   in do
-    graph <- constructQuery endPoint query :: IO RDF.TriplesList
+    graph <- constructQuery endPoint query :: IO (RDF.RDF RDF.TList)
     assertBool "RDF does not include the constructed triple" $ RDF.isIsomorphic expectedGraph graph
 
     where endPoint = "http://127.0.0.1:3000"
@@ -78,15 +81,16 @@ test_constructQuery =
               name <- var
 
               construct <- constructTriple x (example .:. "hasName") name
-              triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
-              triple x (foaf .:. "name") name
+              _ <- triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
+              _ <- triple x (foaf .:. "name") name
 
               return ConstructQuery { queryConstructs = [construct] }
 
+test_describeQuery :: IO ()
 test_describeQuery =
   let expectedNode = RDF.unode "http://dbpedia.org/resource/Edinburgh"
   in do
-    graph <- describeQuery endPoint query :: IO RDF.TriplesList
+    graph <- describeQuery endPoint query :: IO (RDF.RDF RDF.TList)
     assertBool "RDF does not include the required node" $ RDF.rdfContainsNode graph expectedNode
 
     where endPoint = "http://127.0.0.1:3000"

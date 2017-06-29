@@ -15,7 +15,7 @@ import Network.HTTP
 import Text.XML.Light
 import Database.HSparql.QueryGenerator
 import Text.RDF.RDF4H.TurtleParser
-import Data.RDF
+import qualified Data.RDF as RDF
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import qualified Data.ByteString.Char8 as B
@@ -26,9 +26,9 @@ import Network.URI hiding (URI)
 type EndPoint = String
 
 -- |Local representations of incoming XML results.
-data BindingValue = Bound Data.RDF.Node    -- ^RDF Node (UNode, BNode, LNode)
+data BindingValue = Bound RDF.Node    -- ^RDF Node (UNode, BNode, LNode)
                   | Unbound       -- ^Unbound result value
-  deriving (Show, Eq)
+                  deriving (Show, Eq)
 
 -- |Base 'QName' for results with a SPARQL-result URI specified.
 sparqlResult :: String -> QName
@@ -38,34 +38,34 @@ sparqlResult s = (unqual s) { qURI = Just "http://www.w3.org/2005/sparql-results
 --  table storing the bindings for each variable in each row.
 structureContent :: String -> Maybe [[BindingValue]]
 structureContent s =
-    do e <- doc
-       return $ map (projectResult $ vars e) $ findElements (sparqlResult "result") e
-    where doc :: Maybe Element
-          doc = parseXMLDoc s
+  do e <- doc
+     return $ map (projectResult $ vars e) $ findElements (sparqlResult "result") e
+  where doc :: Maybe Element
+        doc = parseXMLDoc s
 
-          vars :: Element -> [String]
-          vars = mapMaybe (findAttr $ unqual "name") . findElements (sparqlResult "variable")
+        vars :: Element -> [String]
+        vars = mapMaybe (findAttr $ unqual "name") . findElements (sparqlResult "variable")
 
-          projectResult :: [String] -> Element -> [BindingValue]
-          projectResult vs e = map pVar vs
-             where pVar v   = maybe Unbound (value . head . elChildren) $ filterElement (pred v) e
-                   pred v e = isJust $ do a <- findAttr (unqual "name") e
-                                          guard $ a == v
+        projectResult :: [String] -> Element -> [BindingValue]
+        projectResult vs e = map pVar vs
+          where pVar v = maybe Unbound (value . head . elChildren) $ filterElement (pred_ v) e
+                pred_ v e' = isJust $ do a <- findAttr (unqual "name") e'
+                                         guard $ a == v
 
-          value :: Element -> BindingValue
-          value e =
-            case qName (elName e) of
-              "uri"     -> Bound $ Data.RDF.unode $ (T.pack $ strContent e)
-              "literal" -> case findAttr (unqual "datatype") e of
-                             Just dt -> Bound $ Data.RDF.lnode $ Data.RDF.typedL (T.pack $ strContent e) (T.pack dt)
-                             Nothing -> case findAttr langAttr e of
-                                          Just lang -> Bound $ Data.RDF.lnode $ Data.RDF.plainLL (T.pack $ strContent e) (T.pack lang)
-                                          Nothing   -> Bound $ Data.RDF.lnode $ Data.RDF.plainL (T.pack $ strContent e)
-              -- TODO: what about blank nodes?
-              _         -> Unbound
+        value :: Element -> BindingValue
+        value e =
+          case qName (elName e) of
+            "uri"     -> Bound $ RDF.unode $ (T.pack $ strContent e)
+            "literal" -> case findAttr (unqual "datatype") e of
+                           Just dt -> Bound $ RDF.lnode $ RDF.typedL (T.pack $ strContent e) (T.pack dt)
+                           Nothing -> case findAttr langAttr e of
+                                        Just lang_ -> Bound $ RDF.lnode $ RDF.plainLL (T.pack $ strContent e) (T.pack lang_)
+                                        Nothing    -> Bound $ RDF.lnode $ RDF.plainL (T.pack $ strContent e)
+            -- TODO: what about blank nodes?
+            _         -> Unbound
 
-          langAttr :: QName
-          langAttr = blank_name { qName = "lang", qPrefix = Just "xml" }
+        langAttr :: QName
+        langAttr = blank_name { qName = "lang", qPrefix = Just "xml" }
 
 -- |Parses the response from a SPARQL ASK query. Either "true" or "false" is expected
 parseAsk :: String -> Bool
@@ -73,8 +73,7 @@ parseAsk s
   | (s' == "true" || s' == "yes") = True
   | (s' == "false"|| s' == "no")  = False
   | otherwise = error $ "Unexpected Ask response: " ++ s
- where
-  s' = reverse $ dropWhile (=='\n') $ reverse s
+  where s' = reverse $ dropWhile (=='\n') $ reverse s
 
 -- |Parses the response from a SPARQL UPDATE query.  An empty body is expected
 parseUpdate :: String -> Bool
@@ -86,74 +85,71 @@ parseUpdate s
 --  'Variable's in the 'SelectQuery' action.
 selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
 selectQuery ep q = do
-    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
-        h1 = mkHeader HdrAccept "application/sparql-results+xml"
-        h2 = mkHeader HdrUserAgent "hsparql-client"
-        request = Request { rqURI = fromJust $ parseURI uri
-                          , rqHeaders = [h1,h2]
-                          , rqMethod = GET
-                          , rqBody = ""
-                          }
-    response <- simpleHTTP request >>= getResponseBody
-    return $ structureContent response
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
+      h1 = mkHeader HdrAccept "application/sparql-results+xml"
+      h2 = mkHeader HdrUserAgent "hsparql-client"
+      request = Request { rqURI = fromJust $ parseURI uri
+                        , rqHeaders = [h1,h2]
+                        , rqMethod = GET
+                        , rqBody = ""
+                        }
+  response <- simpleHTTP request >>= getResponseBody
+  return $ structureContent response
 
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
 --  'Variable's in the 'SelectQuery' action.
 askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
 askQuery ep q = do
-    let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
-        hdr1 = Header HdrUserAgent "hsparql-client"
-        hdr2 = Header HdrAccept "text/plain"
-        hdr3 = Header HdrAccept "text/boolean"
-        hdr4 = Header HdrAcceptCharset "utf-8"
-        request  = insertHeaders [hdr1,hdr2,hdr3,hdr4] (getRequest uri)
-    response <- simpleHTTP request >>= getResponseBody
-    return $ parseAsk response
-
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
+      hdr1 = Header HdrUserAgent "hsparql-client"
+      hdr2 = Header HdrAccept "text/plain"
+      hdr3 = Header HdrAccept "text/boolean"
+      hdr4 = Header HdrAcceptCharset "utf-8"
+      request  = insertHeaders [hdr1,hdr2,hdr3,hdr4] (getRequest uri)
+  response <- simpleHTTP request >>= getResponseBody
+  return $ parseAsk response
 
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
 --  'Variable's in the 'SelectQuery' action.
 updateQuery :: Database.HSparql.Connection.EndPoint -> Query UpdateQuery -> IO Bool
 updateQuery ep q = do
-    let uri = ep
-        body = createUpdateQuery q
-        h1 = mkHeader HdrContentLength $ show (length body)
-        h2 = mkHeader HdrContentType "application/sparql-update"
-        h3 = mkHeader HdrUserAgent "hsparql-client"
-        request = Request { rqURI = fromJust $ parseURI uri
-                          , rqHeaders = [h1,h2,h3]
-                          , rqMethod = POST
-                          , rqBody = body
-                          }
-    response <- simpleHTTP request >>= getResponseBody
+  let uri = ep
+      body = createUpdateQuery q
+      h1 = mkHeader HdrContentLength $ show (length body)
+      h2 = mkHeader HdrContentType "application/sparql-update"
+      h3 = mkHeader HdrUserAgent "hsparql-client"
+      request = Request { rqURI = fromJust $ parseURI uri
+                        , rqHeaders = [h1,h2,h3]
+                        , rqMethod = POST
+                        , rqBody = body
+                        }
+  response <- simpleHTTP request >>= getResponseBody
 --    return $ structureContent response
-    return $ parseUpdate response
-
+  return $ parseUpdate response
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-constructQuery :: (Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF a)
+constructQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF.RDF a)
 constructQuery ep q = do
-    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
-    rdfGraph <- httpCallForRdf uri
-    case rdfGraph of
-      Left e -> error $ show e
-      Right graph -> return graph
-   
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
+  rdfGraph <- httpCallForRdf uri
+  case rdfGraph of
+    Left e -> error $ show e
+    Right graph -> return graph
 
 -- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
 --  'ConstructQuery' action. /Provisional implementation/.
-describeQuery :: (Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF a)
+describeQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF.RDF a)
 describeQuery ep q = do
-    let uri      = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
-    rdfGraph <- httpCallForRdf uri
-    case rdfGraph of
-      Left e -> error $ show e
-      Right graph -> return graph
-    
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
+  rdfGraph <- httpCallForRdf uri
+  case rdfGraph of
+    Left e -> error $ show e
+    Right graph -> return graph
+
 -- |Takes a generated uri and makes simple HTTP request,
 -- asking for RDF N3 serialization. Returns either 'ParseFailure' or 'RDF'
-httpCallForRdf :: Rdf a => String -> IO (Either ParseFailure (RDF a))
+httpCallForRdf :: RDF.Rdf a => String -> IO (Either RDF.ParseFailure (RDF.RDF a))
 httpCallForRdf uri = do
   let h1 = mkHeader HdrUserAgent "hsparql-client"
       h2 = mkHeader HdrAccept "text/turtle"
@@ -163,4 +159,4 @@ httpCallForRdf uri = do
                           , rqBody = ""
                           }
   response <- simpleHTTP request >>= getResponseBody
-  return $ parseString (TurtleParser Nothing Nothing) $ E.decodeUtf8 (B.pack response)
+  return $ RDF.parseString (TurtleParser Nothing Nothing) $ E.decodeUtf8 (B.pack response)
