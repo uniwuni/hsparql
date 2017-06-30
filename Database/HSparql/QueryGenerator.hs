@@ -514,6 +514,26 @@ instance Show DynamicPredicate where
 instance Show DynamicObject where
   show (DynamicObject a) = show a
 
+-- |support for blank nodes.
+--
+-- Define a convenient alias for `mkPredicateObject`. Note: a
+-- pointfree definition leads to the monomorphism restriction @(&) =
+-- mkPredicateObject@. An example of its use:
+--
+-- > p & o = mkPredicateObject p o
+--
+-- for example
+--
+-- > q = do
+-- >   p <- prefix "" (iriRef "http://example.com/")
+-- >   s <- var
+-- >   o1 <- var
+-- >   o2 <- var
+-- >   _ <- triple s (p .:. "p1") [(p .:. "p2") & [(p .:. "p3") & o1], (p .:. "p4") & o2]
+-- >   return SelectQuery { queryVars = [s, o1] }
+--
+-- >>> createSelectQuery q
+-- "PREFIX : <http://example.com/> SELECT  ?x0 ?x1 WHERE {?x0 :p1 [:p2 [:p3 ?x1]], [:p4 ?x2] .} "
 mkPredicateObject :: (PredicateTermLike a, ObjectTermLike b, QueryShow a, QueryShow b, Show a, Show b) => a -> b -> DynamicPredicateObject
 mkPredicateObject p o = (DynamicPredicate p, DynamicObject o)
 
