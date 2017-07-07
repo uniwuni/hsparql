@@ -412,6 +412,8 @@ relation rel x y = RelationalExpr rel (expr x) (expr y)
 (.>=.) :: (TermLike a, TermLike b) => a -> b -> Expr
 (.>=.) = relation GreaterThanOrEqual
 
+infix 4 .==., .!=., .<., .<=., .>., .>=.
+
 -- Negation
 
 -- |Negate any term-like expression, for use, e.g., in filtering.
