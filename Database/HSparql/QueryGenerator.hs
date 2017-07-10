@@ -872,14 +872,14 @@ instance QueryShow QueryData where
           orderClause = qshow . ordering $ qd
           -- TODO: Offset
           limitOffsetClauses = qshow (limits qd)
-          solutionModifier = unwords [groupClause, orderClause, limitOffsetClauses]
+          solutionModifier = unwords' [groupClause, orderClause, limitOffsetClauses]
           query = case queryType qd of
             SelectType ->
-             unwords [ prefixDecl
-                     , qshow (SelectForm qd)
-                     , whereClause
-                     , solutionModifier
-                     ]
+             unwords' [ prefixDecl
+                      , qshow (SelectForm qd)
+                      , whereClause
+                      , solutionModifier
+                      ]
             ConstructType ->
              unwords [ prefixDecl
                      , qshow (ConstructForm qd)
@@ -913,3 +913,13 @@ escapeSpecialChar = T.concatMap handleChar
         handleChar '"'  = "\\\""
         handleChar '\\' = "\\\\"
         handleChar c    = T.singleton c
+
+-- | Alternative version of 'unwords' that avoid adding spaces on empty strings.
+{-# NOINLINE [1] unwords' #-}
+unwords'        :: [String] -> String
+unwords' []     =  ""
+unwords' (w:ws) = w ++ go ws
+  where
+    go []      = ""
+    go ("":vs) = go vs
+    go (v:vs)  = ' ' : (v ++ go vs)

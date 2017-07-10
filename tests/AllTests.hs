@@ -21,7 +21,7 @@ app :: Application
 app req respond = respond $ response req
    where
      response req_ = case rawQueryString req_ of
-                      "?query=PREFIX%20foaf%3A%20%3Chttp%3A%2F%2Fxmlns.com%2Ffoaf%2F0.1%2F%3E%20PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fproperty%2F%3E%20PREFIX%20dbprop%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20SELECT%20%20%3Fx1%20WHERE%20%7B%3Fx0%20dbpedia%3Agenre%20dbprop%3AWeb_browser%20.%20%3Fx0%20foaf%3Aname%20%3Fx1%20.%7D%20"
+                      "?query=PREFIX%20foaf%3A%20%3Chttp%3A%2F%2Fxmlns.com%2Ffoaf%2F0.1%2F%3E%20PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fproperty%2F%3E%20PREFIX%20dbprop%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20SELECT%20%20%3Fx1%20WHERE%20%7B%3Fx0%20dbpedia%3Agenre%20dbprop%3AWeb_browser%20.%20%3Fx0%20foaf%3Aname%20%3Fx1%20.%7D"
                           -> selectResponse
                       "?query=PREFIX%20dbprop%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fproperty%2F%3E%20PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20ASK%20%7B%20%3Fx0%20dbprop%3Agenre%20dbpedia%3AWeb_browser%20.%20%7D"
                           -> askResponse
