@@ -42,7 +42,7 @@ test_selectQuery =
               _ <- triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
               _ <- triple x (foaf .:. "name") name
 
-              return SelectQuery { queryVars = [name] }
+              select [SelectVar name]
 
 test_askQuery :: IO ()
 test_askQuery = do

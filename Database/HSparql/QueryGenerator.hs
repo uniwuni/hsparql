@@ -22,6 +22,9 @@ module Database.HSparql.QueryGenerator
   , union
   , filterExpr
   , bind
+  , select
+  , selectVars
+  , as
 
   -- ** Duplicate handling
   , distinct
@@ -29,6 +32,9 @@ module Database.HSparql.QueryGenerator
 
   -- ** Limit handling
   , limit
+
+  -- ** Groups handling
+  , groupBy
 
   -- ** Order handling
   , orderNext
@@ -49,6 +55,13 @@ module Database.HSparql.QueryGenerator
 
   -- ** Negation
   , notExpr
+
+  -- ** Builtin aggregation functions
+  , count
+  , sum_
+  , min_
+  , max_
+  , avg
 
   -- ** Builtin Functions
   , str
@@ -73,6 +86,7 @@ module Database.HSparql.QueryGenerator
   , BlankNodePattern
   , Pattern
   , SelectQuery(..)
+  , SelectExpr(..)
   , ConstructQuery(..)
   , AskQuery(..)
   , UpdateQuery(..)
@@ -107,7 +121,7 @@ createSelectQuery q = execQuery specifyVars qshow
   where specifyVars :: Query ()
         specifyVars = do
           query <- q
-          modify $ \s -> s { vars = queryVars query , queryType = SelectType }
+          modify $ \s -> s { vars = queryExpr query, queryType = SelectType }
 
 -- |Execute a 'Construct Query' action, returning the 'String' representation of the query.
 createConstructQuery :: Query ConstructQuery -> String
@@ -188,6 +202,11 @@ describeIRI newIri = do
   modify $ \s -> s { describeURI = Just newIri }
   return newIri
 
+selectVars :: [Variable] -> Query SelectQuery
+selectVars vs = return SelectQuery { queryExpr = fmap SelectVar vs }
+
+select :: [SelectExpr] -> Query SelectQuery
+select es = return SelectQuery { queryExpr = es }
 
 -- |Add optional constraints on matches. Variable bindings within the optional
 --  action are lost, so variables must always be defined prior to opening the
@@ -247,6 +266,14 @@ reduced = do modify $ \s -> s { duplicates = Reduced }
 limit :: Int -> Query Limit
 limit n = do modify $ \s -> s { limits = Limit n }
              gets limits
+
+-- Grouping
+
+-- |Divide the solution into one or more groups.
+groupBy :: (TermLike a) => a -> Query [GroupBy]
+groupBy e = do
+  modify $ \s -> s { groups = groups s ++ [GroupBy . expr $ e] }
+  gets groups
 
 -- Order handling
 
@@ -433,6 +460,21 @@ type BuiltinFunc3 = forall a b c . (TermLike a, TermLike b, TermLike c) => a -> 
 builtinFunc3 :: Function -> BuiltinFunc3
 builtinFunc3 f x y z = BuiltinCall f [expr x, expr y, expr z]
 
+count :: BuiltinFunc1
+count = builtinFunc1 CountFunc
+
+sum_ :: BuiltinFunc1
+sum_ = builtinFunc1 SumFunc
+
+min_ :: BuiltinFunc1
+min_ = builtinFunc1 MinFunc
+
+max_ :: BuiltinFunc1
+max_ = builtinFunc1 MaxFunc
+
+avg :: BuiltinFunc1
+avg = builtinFunc1 AvgFunc
+
 str :: BuiltinFunc1
 str = builtinFunc1 StrFunc
 
@@ -482,8 +524,9 @@ queryData = QueryData
     , updateTriples = []
     , describeURI = Nothing
     , duplicates = NoLimits
-    , limits     = NoLimit
+    , groups    = []
     , ordering   = []
+    , limits     = NoLimit
     }
 
 
@@ -582,9 +625,11 @@ data NumericExpr = NumericLiteralExpr Integer
 data Relation = Equal | NotEqual | LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual
               deriving (Show)
 
-data Function = StrFunc | LangFunc | LangMatchesFunc | DataTypeFunc | BoundFunc
-              | SameTermFunc | IsIRIFunc | IsURIFunc | IsBlankFunc
-              | IsLiteralFunc | RegexFunc
+data Function = CountFunc| SumFunc | MinFunc | MaxFunc | AvgFunc
+              | StrFunc | LangFunc | LangMatchesFunc
+              | DataTypeFunc | BoundFunc | SameTermFunc
+              | IsIRIFunc | IsURIFunc | IsBlankFunc | IsLiteralFunc
+              | RegexFunc
               deriving (Show)
 
 data Expr = OrExpr [Expr]
@@ -596,6 +641,13 @@ data Expr = OrExpr [Expr]
           | VarOrTermExpr VarOrTerm
           deriving (Show)
 
+data SelectExpr = SelectExpr Expr Variable
+                | SelectVar Variable
+                deriving (Show)
+
+as :: Expr -> Variable -> SelectExpr
+e `as` v = SelectExpr e v
+
 data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Filter Expr
              | Bind Expr Variable
@@ -603,6 +655,8 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
 
 data GroupGraphPattern = GroupGraphPattern [Pattern]
+
+newtype GroupBy = GroupBy Expr
 
 data OrderBy = Asc Expr
              | Desc Expr
@@ -618,7 +672,7 @@ appendTriple t ts = t : ts
 data QueryData = QueryData
     { prefixes   :: [Prefix]
     , varsIdx    :: Int
-    , vars       :: [Variable]
+    , vars       :: [SelectExpr]
     , queryType  :: QueryType
     , pattern    :: GroupGraphPattern
     , constructTriples :: [Pattern] -- QTriple
@@ -626,8 +680,9 @@ data QueryData = QueryData
     , updateTriples :: [Pattern]
     , describeURI :: Maybe IRIRef
     , duplicates :: Duplicates
-    , limits     :: Limit
+    , groups    :: [GroupBy]
     , ordering   :: [OrderBy]
+    , limits     :: Limit
     }
 
 
@@ -645,11 +700,10 @@ data UpdateQuery = UpdateQuery
     { queryUpdate :: [Pattern] }
 
 data SelectQuery = SelectQuery
-    { queryVars :: [Variable] }
+    { queryExpr :: [SelectExpr] }
 
 data DescribeQuery = DescribeQuery
     { queryDescribe :: IRIRef }
-
 
 -- QueryShow instances
 instance QueryShow BlankNodePattern where
@@ -737,6 +791,11 @@ instance QueryShow Relation where
   qshow GreaterThanOrEqual = ">="
 
 instance QueryShow Function where
+  qshow CountFunc       = "COUNT"
+  qshow SumFunc         = "SUM"
+  qshow MinFunc         = "MIN"
+  qshow MaxFunc         = "MAX"
+  qshow AvgFunc         = "AVG"
   qshow StrFunc         = "STR"
   qshow LangFunc        = "LANG"
   qshow LangMatchesFunc = "LANGMATCHES"
@@ -760,6 +819,13 @@ instance QueryShow Expr where
           qshow' (BuiltinCall f es) = wrap $ qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
           wrap e = "(" ++ e ++ ")"
 
+instance QueryShow SelectExpr where
+  qshow (SelectVar v) = qshow v
+  qshow (SelectExpr e v) = mconcat ["(", qshow e, " AS ", qshow v, ")"]
+
+instance QueryShow [SelectExpr] where
+  qshow = intercalate " " . fmap qshow
+
 instance QueryShow Pattern where
   qshow (QTriple a b c) = intercalate " " [qshow a, qshow b, qshow c, "."]
   qshow (Filter e)      = "FILTER " ++ qshow e ++ " ."
@@ -773,9 +839,20 @@ instance QueryShow [Pattern] where
 instance QueryShow GroupGraphPattern where
   qshow (GroupGraphPattern ps) = "{" ++ qshow ps ++ "}"
 
+instance QueryShow GroupBy where
+  qshow (GroupBy e) = qshow e
+
+instance QueryShow [GroupBy] where
+  qshow [] = ""
+  qshow gs = unwords $ "GROUP BY" : fmap qshow gs
+
 instance QueryShow OrderBy where
   qshow (Asc e)  = "ASC(" ++ qshow e ++ ")"
   qshow (Desc e) = "DESC(" ++ qshow e ++ ")"
+
+instance QueryShow [OrderBy] where
+  qshow [] = ""
+  qshow os = unwords $ "ORDER BY" : fmap qshow os
 
 instance QueryShow QueryForm where
   qshow (SelectForm qd) =  unwords
@@ -789,42 +866,43 @@ instance QueryShow QueryForm where
   qshow (DescribeForm qd) = "DESCRIBE " ++ qshow (describeURI qd)
 
 instance QueryShow QueryData where
-  qshow qd = let whereStmt = unwords $
-                              ["WHERE"
-                              , qshow (pattern qd)
-                              ] ++ case ordering qd of
-                                      [] -> []
-                                      os -> "ORDER BY" : map qshow os
-
-                 query = case queryType qd of
-                  SelectType ->
-                   unwords [ qshow (prefixes qd)
-                           , qshow (SelectForm qd)
-                           , whereStmt
-                           , qshow (limits qd)
-                           ]
-                  ConstructType ->
-                   unwords [ qshow (prefixes qd)
-                           , qshow (ConstructForm qd)
-                           , whereStmt
-                           ]
-                  DescribeType ->
-                   unwords [ qshow (prefixes qd)
-                           , qshow (DescribeForm qd)
-                           , whereStmt
-                           ]
-                  AskType ->
-                   unwords [ qshow (prefixes qd)
-                           , qshow (AskForm qd)
-                           ]
-                  UpdateType ->
-                   unwords [ qshow (prefixes qd)
-                           , qshow (UpdateForm qd)
-                           ]
-                  -- FIXME
-                  TypeNotSet ->
-                    error "instance QueryShow QueryData: TypeNotSet not supported."
-             in query
+  qshow qd = query
+    where prefixDecl = qshow (prefixes qd)
+          whereClause = unwords ["WHERE", qshow (pattern qd)]
+          groupClause = qshow . groups $ qd
+          -- TODO: HAVING clause
+          orderClause = qshow . ordering $ qd
+          -- TODO: Offset
+          limitOffsetClauses = qshow (limits qd)
+          solutionModifier = unwords' [groupClause, orderClause, limitOffsetClauses]
+          query = case queryType qd of
+            SelectType ->
+             unwords' [ prefixDecl
+                      , qshow (SelectForm qd)
+                      , whereClause
+                      , solutionModifier
+                      ]
+            ConstructType ->
+             unwords [ prefixDecl
+                     , qshow (ConstructForm qd)
+                     , whereClause
+                     ]
+            DescribeType ->
+             unwords [ prefixDecl
+                     , qshow (DescribeForm qd)
+                     , whereClause
+                     ]
+            AskType ->
+             unwords [ prefixDecl
+                     , qshow (AskForm qd)
+                     ]
+            UpdateType ->
+             unwords [ prefixDecl
+                     , qshow (UpdateForm qd)
+                     ]
+            -- FIXME
+            TypeNotSet ->
+              error "instance QueryShow QueryData: TypeNotSet not supported."
 
 
 -- Internal utilities
@@ -837,3 +915,13 @@ escapeSpecialChar = T.concatMap handleChar
         handleChar '"'  = "\\\""
         handleChar '\\' = "\\\\"
         handleChar c    = T.singleton c
+
+-- | Alternative version of 'unwords' that avoid adding spaces on empty strings.
+{-# NOINLINE [1] unwords' #-}
+unwords'        :: [String] -> String
+unwords' []     =  ""
+unwords' (w:ws) = w ++ go ws
+  where
+    go []      = ""
+    go ("":vs) = go vs
+    go (v:vs)  = ' ' : (v ++ go vs)
