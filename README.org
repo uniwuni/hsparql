@@ -1,3 +1,14 @@
+[![Available on Hackage][badge-hackage]][hackage]
+[![License BSD3][badge-license]][license]
+[![Build Status][badge-travis]][travis]
+
+[badge-travis]: https://travis-ci.org/robstewart57/hsparql.png?branch=master
+[travis]: https://travis-ci.org/robstewart57/hsparql
+[badge-hackage]: https://img.shields.io/hackage/v/hsparql.svg
+[hackage]: http://hackage.haskell.org/package/hsparql
+[badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
+[license]: https://github.com/robstewart57/hsparql/blob/master/LICENSE
+
 * Introduction
 
 hsparql includes a DSL to easily create queries, as well as methods to
@@ -80,7 +91,7 @@ simpleConstruct = do
     page <- var
 
     construct <- constructTriple x (example .:. "hasName") name
-    
+
     triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
     triple x (foaf .:. "name") name
     triple x (foaf .:. "page") page
