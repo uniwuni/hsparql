@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification, OverloadedLists #-}
 
 -- |The query generator DSL for SPARQL, used when connecting to remote
 --  endpoints.
@@ -22,6 +22,7 @@ module Database.HSparql.QueryGenerator
   , union
   , filterExpr
   , bind
+  , subQuery
   , select
   , selectVars
   , as
@@ -100,8 +101,11 @@ module Database.HSparql.QueryGenerator
   )
 where
 
-import Control.Monad.State
-import Data.List (intercalate)
+import           Control.Monad.State
+import           Data.List (intercalate, intersperse)
+import qualified Data.List as L
+import           Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import qualified Data.RDF as RDF
 
@@ -110,22 +114,28 @@ import qualified Data.RDF as RDF
 -- |The 'State' monad applied to 'QueryData'.
 type Query a = State QueryData a
 
+-- |Execute a 'Query' action, starting with initial 'QueryData', then process
+-- the resulting 'QueryData'.
+execQuery :: QueryData -> Query a -> (QueryData -> b) -> b
+execQuery qd q f = f $ execState q qd
+
 -- |Execute a 'Query' action, starting with the empty 'queryData', then process
 -- the resulting 'QueryData'.
-execQuery :: Query a -> (QueryData -> b) -> b
-execQuery q f = f $ execState q queryData
+execQuery0 :: Query a -> (QueryData -> b) -> b
+execQuery0 = execQuery queryData
 
 -- |Execute a 'Select Query' action, returning the 'String' representation of the query.
 createSelectQuery :: Query SelectQuery -> String
-createSelectQuery q = execQuery specifyVars qshow
-  where specifyVars :: Query ()
-        specifyVars = do
-          query <- q
-          modify $ \s -> s { vars = queryExpr query, queryType = SelectType }
+createSelectQuery q = execQuery0 (specifyVars q) qshow
+
+specifyVars :: Query SelectQuery -> Query ()
+specifyVars q = do
+  query <- q
+  modify $ \s -> s { vars = queryExpr query, queryType = SelectType }
 
 -- |Execute a 'Construct Query' action, returning the 'String' representation of the query.
 createConstructQuery :: Query ConstructQuery -> String
-createConstructQuery q = execQuery specifyType qshow
+createConstructQuery q = execQuery0 specifyType qshow
   where specifyType :: Query ()
         specifyType = do
           query <- q
@@ -133,7 +143,7 @@ createConstructQuery q = execQuery specifyType qshow
 
 -- |Execute a 'Ask Query' action, returning the 'String' representation of the query.
 createAskQuery :: Query AskQuery -> String
-createAskQuery q = execQuery specifyType qshow
+createAskQuery q = execQuery0 specifyType qshow
   where specifyType :: Query ()
         specifyType = do
           query <- q
@@ -141,7 +151,7 @@ createAskQuery q = execQuery specifyType qshow
 
 -- |Execute a 'Update Query' action, returning the 'String' representation of the query.
 createUpdateQuery :: Query UpdateQuery -> String
-createUpdateQuery q = execQuery specifyType qshow
+createUpdateQuery q = execQuery0 specifyType qshow
   where specifyType :: Query ()
         specifyType = do
           query <- q
@@ -149,7 +159,7 @@ createUpdateQuery q = execQuery specifyType qshow
 
 -- |Execute a 'Describe Query' action, returning the 'String' representation of the query.
 createDescribeQuery :: Query DescribeQuery -> String
-createDescribeQuery q = execQuery specifyType qshow
+createDescribeQuery q = execQuery0 specifyType qshow
   where specifyType :: Query ()
         specifyType = do
           query <- q
@@ -167,9 +177,11 @@ prefix _ _ = error "prefix requires an absolute IRI"
 
 -- |Create and return a variable to the query, usable in later expressions.
 var :: Query Variable
-var = do n <- gets varsIdx
+var = do qis <- gets (NE.init . subQueryIdx)
+         n <- gets varsIdx
+         let sqis = NE.fromList (qis ++ [n])
          modify $ \s -> s { varsIdx = n + 1 }
-         return $ Variable n
+         return $ Variable sqis
 
 -- |Restrict the query to only results for which values match constants in this
 --  triple, or for which the variables can be bound.
@@ -215,7 +227,7 @@ optional :: Query a -> Query Pattern
 optional q = do
   -- Determine the patterns by executing the action on a blank QueryData, and
   -- then pulling the patterns out from there.
-  let option  = execQuery q $ OptionalGraphPattern . pattern
+  let option  = execQuery0 q $ OptionalGraphPattern . pattern
   modify $ \s -> s { pattern = appendPattern option (pattern s) }
   return option
 
@@ -223,8 +235,8 @@ optional q = do
 --  variables must be defined prior to the opening of any block.
 union :: Query a -> Query b -> Query Pattern
 union q1 q2 = do
-  let p1    = execQuery q1 pattern
-      p2    = execQuery q2 pattern
+  let p1    = execQuery0 q1 pattern
+      p2    = execQuery0 q2 pattern
       union' = UnionGraphPattern p1 p2
   modify $ \s -> s { pattern = appendPattern union' (pattern s) }
   return union'
@@ -236,11 +248,34 @@ filterExpr e = do
   modify $ \s -> s { pattern = appendPattern f (pattern s) }
   return f
 
+-- |Bind the result of an expression to a variable.
 bind :: Expr -> Variable -> Query Pattern
 bind e v = do
   let b = Bind (expr e) v
   modify $ \s -> s { pattern = appendPattern b (pattern s) }
   return b
+
+-- |Perform a subquery.
+subQuery :: Query SelectQuery -> Query Pattern
+subQuery q = do
+  -- Manage subquery indexes
+  qis <- gets subQueryIdx
+  let sqis = qis |> 0
+      qis' = NE.fromList $ NE.init qis ++ [NE.last qis + 1]
+  -- Execute the subquery action
+  let subQueryData0 = queryData { subQueryIdx = sqis }
+      subQueryData = execQuery subQueryData0 (specifyVars q) id
+  -- Merge prefixes
+  prefixesParentQuery <- gets prefixes
+  let prefixesSubQuery = prefixes subQueryData
+      newPrefixes = prefixesParentQuery `L.union` prefixesSubQuery
+  -- Create the subquery pattern and remove prefixes from the subquery
+  let sq = SubQuery $ subQueryData { prefixes = [] }
+  -- Append the subquery pattern, update the subquery index and the prefixes.
+  modify $ \s -> s { pattern = appendPattern sq (pattern s)
+                   , subQueryIdx = qis'
+                   , prefixes = newPrefixes  }
+  return sq
 
 -- Random auxiliary
 
@@ -518,6 +553,7 @@ queryData = QueryData
     , varsIdx    = 0
     , vars       = []
     , queryType  = TypeNotSet
+    , subQueryIdx = [0]
     , pattern    = GroupGraphPattern []
     , constructTriples = []
     , askTriples = []
@@ -543,9 +579,9 @@ data Limit = NoLimit | Limit Int
            deriving (Show)
 
 data Prefix = Prefix T.Text RDF.Node
-            deriving (Show)
+            deriving (Show, Eq)
 
-data Variable = Variable Int
+data Variable = Variable (NonEmpty Int)
               deriving (Show)
 
 data DynamicPredicate = forall a. (PredicateTermLike a, QueryShow a, Show a) => DynamicPredicate a
@@ -653,6 +689,7 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Bind Expr Variable
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
+             | SubQuery QueryData
 
 data GroupGraphPattern = GroupGraphPattern [Pattern]
 
@@ -674,6 +711,7 @@ data QueryData = QueryData
     , varsIdx    :: Int
     , vars       :: [SelectExpr]
     , queryType  :: QueryType
+    , subQueryIdx :: NonEmpty Int
     , pattern    :: GroupGraphPattern
     , constructTriples :: [Pattern] -- QTriple
     , askTriples :: [Pattern]
@@ -687,8 +725,6 @@ data QueryData = QueryData
 
 
 data QueryType = SelectType | ConstructType | AskType | UpdateType | DescribeType | TypeNotSet
-
-data QueryForm = SelectForm QueryData | ConstructForm QueryData | AskForm QueryData | UpdateForm QueryData | DescribeForm QueryData
 
 data ConstructQuery = ConstructQuery
     { queryConstructs :: [Pattern] }
@@ -740,7 +776,8 @@ instance QueryShow [Prefix] where
   qshow = unwords . fmap qshow
 
 instance QueryShow Variable where
-  qshow (Variable v) = "?x" ++ show v
+  qshow (Variable vs) = "?x" ++ indexes
+    where indexes = mconcat . intersperse "_" . fmap show . NE.toList $ vs
 
 instance QueryShow [Variable] where
   qshow = unwords . fmap qshow
@@ -832,6 +869,7 @@ instance QueryShow Pattern where
   qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
+  qshow (SubQuery qd)   = intercalate " " ["{", qshow qd, "}"]
 
 instance QueryShow [Pattern] where
   qshow = unwords . fmap qshow
@@ -854,17 +892,6 @@ instance QueryShow [OrderBy] where
   qshow [] = ""
   qshow os = unwords $ "ORDER BY" : fmap qshow os
 
-instance QueryShow QueryForm where
-  qshow (SelectForm qd) =  unwords
-                        [ "SELECT"
-                        , qshow (duplicates qd)
-                        , qshow (vars qd)
-                        ]
-  qshow (ConstructForm qd) = "CONSTRUCT { " ++ qshow (constructTriples qd) ++ " }"
-  qshow (AskForm qd) = "ASK { " ++ qshow (askTriples qd) ++ " }"
-  qshow (UpdateForm qd) = "INSERT DATA { " ++ qshow (updateTriples qd) ++ " }"
-  qshow (DescribeForm qd) = "DESCRIBE " ++ qshow (describeURI qd)
-
 instance QueryShow QueryData where
   qshow qd = query
     where prefixDecl = qshow (prefixes qd)
@@ -878,27 +905,36 @@ instance QueryShow QueryData where
           query = case queryType qd of
             SelectType ->
              unwords' [ prefixDecl
-                      , qshow (SelectForm qd)
+                      , "SELECT"
+                      , qshow (duplicates qd)
+                      , qshow (vars qd)
                       , whereClause
                       , solutionModifier
                       ]
             ConstructType ->
              unwords [ prefixDecl
-                     , qshow (ConstructForm qd)
+                     , "CONSTRUCT {"
+                     , qshow (constructTriples qd)
+                     , "}"
                      , whereClause
                      ]
             DescribeType ->
              unwords [ prefixDecl
-                     , qshow (DescribeForm qd)
+                     , "DESCRIBE"
+                     , qshow (describeURI qd)
                      , whereClause
                      ]
             AskType ->
              unwords [ prefixDecl
-                     , qshow (AskForm qd)
+                     , "ASK {"
+                     , qshow (askTriples qd)
+                     , "}"
                      ]
             UpdateType ->
              unwords [ prefixDecl
-                     , qshow (UpdateForm qd)
+                     , "INSERT DATA {"
+                     , qshow (updateTriples qd)
+                     , "}"
                      ]
             -- FIXME
             TypeNotSet ->
@@ -919,9 +955,14 @@ escapeSpecialChar = T.concatMap handleChar
 -- | Alternative version of 'unwords' that avoid adding spaces on empty strings.
 {-# NOINLINE [1] unwords' #-}
 unwords'        :: [String] -> String
-unwords' []     =  ""
-unwords' (w:ws) = w ++ go ws
+unwords' []      =  ""
+unwords' ("":ws) = unwords' ws
+unwords' (w:ws)  = w ++ go ws
   where
     go []      = ""
     go ("":vs) = go vs
     go (v:vs)  = ' ' : (v ++ go vs)
+
+-- | Append a element to a 'NonEmpty' list.
+(|>) :: NonEmpty a -> a -> NonEmpty a
+xs |> x = NE.fromList $ NE.toList xs ++ [x]
