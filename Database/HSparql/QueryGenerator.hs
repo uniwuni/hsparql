@@ -12,30 +12,30 @@ module Database.HSparql.QueryGenerator
   -- * Query Actions
   , prefix
   , var
-  , Database.HSparql.QueryGenerator.triple
+  , Database.HSparql.QueryGenerator.triple, triple_
   , mkPredicateObject
-  , constructTriple
-  , askTriple
-  , updateTriple
-  , describeIRI
-  , optional
-  , union
-  , filterExpr
-  , bind
-  , subQuery
+  , constructTriple, constructTriple_
+  , askTriple, askTriple_
+  , updateTriple, updateTriple_
+  , describeIRI, describeIRI_
+  , optional, optional_
+  , union, union_
+  , filterExpr, filterExpr_
+  , bind, bind_
+  , subQuery, subQuery_
   , select
   , selectVars
   , as
 
   -- ** Duplicate handling
-  , distinct
-  , reduced
+  , distinct, distinct_
+  , reduced, reduced_
 
   -- ** Limit handling
-  , limit
+  , limit, limit_
 
   -- ** Groups handling
-  , groupBy
+  , groupBy, groupBy_
 
   -- ** Order handling
   , orderNext
@@ -82,6 +82,7 @@ module Database.HSparql.QueryGenerator
 
   -- * Types
   , Query
+  , Prefix
   , Variable
   , VarOrNode(..)
   , BlankNodePattern
@@ -191,11 +192,17 @@ triple a b c = do
   modify $ \s -> s { pattern = appendPattern t (pattern s) }
   return t
 
+triple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
+triple_ a b c = void $ triple a b c
+
 constructTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 constructTriple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
   modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
   return t
+
+constructTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
+constructTriple_ a b c = void $ constructTriple a b c
 
 askTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 askTriple a b c = do
@@ -203,16 +210,25 @@ askTriple a b c = do
   modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
   return t
 
+askTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
+askTriple_ a b c = void $ askTriple a b c
+
 updateTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
 updateTriple a b c = do
   let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c) -- TODO: should only allow terms
   modify $ \s -> s { updateTriples = appendTriple t (updateTriples s) }
   return t
 
+updateTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
+updateTriple_ a b c = void $ updateTriple a b c
+
 describeIRI :: IRIRef -> Query IRIRef
 describeIRI newIri = do
   modify $ \s -> s { describeURI = Just newIri }
   return newIri
+
+describeIRI_ :: IRIRef -> Query ()
+describeIRI_ = void . describeIRI
 
 selectVars :: [Variable] -> Query SelectQuery
 selectVars vs = return SelectQuery { queryExpr = fmap SelectVar vs }
@@ -231,6 +247,9 @@ optional q = do
   modify $ \s -> s { pattern = appendPattern option (pattern s) }
   return option
 
+optional_ :: Query a -> Query ()
+optional_ = void . optional
+
 -- |Add a union structure to the query pattern. As with 'optional' blocks,
 --  variables must be defined prior to the opening of any block.
 union :: Query a -> Query b -> Query Pattern
@@ -241,6 +260,9 @@ union q1 q2 = do
   modify $ \s -> s { pattern = appendPattern union' (pattern s) }
   return union'
 
+union_ :: Query a -> Query b -> Query ()
+union_ a b = void $ union a b
+
 -- |Restrict results to only those for which the given expression is true.
 filterExpr :: (TermLike a) => a -> Query Pattern
 filterExpr e = do
@@ -248,12 +270,18 @@ filterExpr e = do
   modify $ \s -> s { pattern = appendPattern f (pattern s) }
   return f
 
+filterExpr_ :: (TermLike a) => a -> Query ()
+filterExpr_ = void . filterExpr
+
 -- |Bind the result of an expression to a variable.
 bind :: Expr -> Variable -> Query Pattern
 bind e v = do
   let b = Bind (expr e) v
   modify $ \s -> s { pattern = appendPattern b (pattern s) }
   return b
+
+bind_ :: Expr -> Variable -> Query ()
+bind_ a b = void $ bind a b
 
 -- |Perform a subquery.
 subQuery :: Query SelectQuery -> Query Pattern
@@ -277,6 +305,9 @@ subQuery q = do
                    , prefixes = newPrefixes  }
   return sq
 
+subQuery_ :: Query SelectQuery -> Query ()
+subQuery_ = void . subQuery
+
 -- Random auxiliary
 
 -- |Form a 'Node', with the 'Prefix' and reference name.
@@ -291,16 +322,25 @@ distinct :: Query Duplicates
 distinct = do modify $ \s -> s { duplicates = Distinct }
               gets duplicates
 
+distinct_ :: Query ()
+distinct_ = void distinct
+
 -- |Set duplicate handling to 'Reduced'. By default, there are no reductions.
 reduced :: Query Duplicates
 reduced = do modify $ \s -> s { duplicates = Reduced }
              gets duplicates
+
+reduced_ :: Query ()
+reduced_ = void reduced
 
 -- |Set limit handling to the given value.  By default, there are no limits.
 --  Note: negative numbers cause no query results to be returned.
 limit :: Int -> Query Limit
 limit n = do modify $ \s -> s { limits = Limit n }
              gets limits
+
+limit_ :: Int -> Query ()
+limit_ = void . limit
 
 -- Grouping
 
@@ -309,6 +349,9 @@ groupBy :: (TermLike a) => a -> Query [GroupBy]
 groupBy e = do
   modify $ \s -> s { groups = groups s ++ [GroupBy . expr $ e] }
   gets groups
+
+groupBy_ :: (TermLike a) => a -> Query ()
+groupBy_ = void . groupBy
 
 -- Order handling
 
