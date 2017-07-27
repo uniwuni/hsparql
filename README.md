@@ -225,5 +225,5 @@ askQuery :: EndPoint -> Query AskQuery -> IO Bool
   achieve, to provide a semantic web toolkit similar to [Jena][2] for Java.
 
 
-[1]: https://github.com/amccausl/RDF4H
+[1]: https://github.com/robstewart57/rdf4h
 [2]: http://incubator.apache.org/jena/
