@@ -82,6 +82,7 @@ module Database.HSparql.QueryGenerator
   -- * Types
   , Query
   , Variable
+  , Prefix
   , VarOrNode(..)
   , BlankNodePattern
   , Pattern
