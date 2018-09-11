@@ -1,11 +1,18 @@
 module Database.HSparql.Connection
     ( Database.HSparql.Connection.EndPoint
     , BindingValue(..)
+    -- * submit queries using HSparql DSL
     , selectQuery
     , constructQuery
     , askQuery
     , updateQuery
     , describeQuery
+    -- * submit queries using raw SPARQL strings
+    , selectQuery'
+    , constructQuery'
+    , askQuery'
+    , updateQuery'
+    , describeQuery'
     )
 where
 
@@ -81,11 +88,36 @@ parseUpdate s
   | s == "" = True
   | otherwise = error $ "Unexpected Update response: " ++ s
 
+
+-- |Connect to remote 'EndPoint' and find all possible bindings for the
+-- 'Variable's in the 'SelectQuery' action.
+selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
+selectQuery ep q = selectQuery' ep (createSelectQuery q)
+
 -- |Connect to remote 'EndPoint' and find all possible bindings for the
 --  'Variable's in the 'SelectQuery' action.
-selectQuery :: Database.HSparql.Connection.EndPoint -> Query SelectQuery -> IO (Maybe [[BindingValue]])
-selectQuery ep q = do
-  let uri = ep ++ "?" ++ urlEncodeVars [("query", createSelectQuery q)]
+askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
+askQuery ep q = askQuery' ep (createAskQuery q)
+
+-- |Connect to remote 'EndPoint' and find all possible bindings for the
+--  'Variable's in the 'SelectQuery' action.
+updateQuery :: Database.HSparql.Connection.EndPoint -> Query UpdateQuery -> IO Bool
+updateQuery ep q = updateQuery' ep (createUpdateQuery q)
+
+-- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
+--  'ConstructQuery' action. /Provisional implementation/.
+constructQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF.RDF a)
+constructQuery ep q = constructQuery' ep (createConstructQuery q)
+
+-- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
+--  'ConstructQuery' action. /Provisional implementation/.
+describeQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF.RDF a)
+describeQuery ep q = describeQuery' ep (createDescribeQuery q)
+
+
+selectQuery' :: Database.HSparql.Connection.EndPoint -> String -> IO (Maybe [[BindingValue]])
+selectQuery' ep q = do
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", q)]
       h1 = mkHeader HdrAccept "application/sparql-results+xml"
       h2 = mkHeader HdrUserAgent "hsparql-client"
       request = Request { rqURI = fromJust $ parseURI uri
@@ -96,11 +128,9 @@ selectQuery ep q = do
   response <- simpleHTTP request >>= getResponseBody
   return $ structureContent response
 
--- |Connect to remote 'EndPoint' and find all possible bindings for the
---  'Variable's in the 'SelectQuery' action.
-askQuery :: Database.HSparql.Connection.EndPoint -> Query AskQuery -> IO Bool
-askQuery ep q = do
-  let uri = ep ++ "?" ++ urlEncodeVars [("query", createAskQuery q)]
+askQuery' :: Database.HSparql.Connection.EndPoint -> String -> IO Bool
+askQuery' ep q = do
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", q)]
       hdr1 = Header HdrUserAgent "hsparql-client"
       hdr2 = Header HdrAccept "text/plain"
       hdr3 = Header HdrAccept "text/boolean"
@@ -109,12 +139,10 @@ askQuery ep q = do
   response <- simpleHTTP request >>= getResponseBody
   return $ parseAsk response
 
--- |Connect to remote 'EndPoint' and find all possible bindings for the
---  'Variable's in the 'SelectQuery' action.
-updateQuery :: Database.HSparql.Connection.EndPoint -> Query UpdateQuery -> IO Bool
-updateQuery ep q = do
+updateQuery' :: Database.HSparql.Connection.EndPoint -> String -> IO Bool
+updateQuery' ep q = do
   let uri = ep
-      body = createUpdateQuery q
+      body = q
       h1 = mkHeader HdrContentLength $ show (length body)
       h2 = mkHeader HdrContentType "application/sparql-update"
       h3 = mkHeader HdrUserAgent "hsparql-client"
@@ -127,21 +155,17 @@ updateQuery ep q = do
 --    return $ structureContent response
   return $ parseUpdate response
 
--- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
---  'ConstructQuery' action. /Provisional implementation/.
-constructQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query ConstructQuery -> IO (RDF.RDF a)
-constructQuery ep q = do
-  let uri = ep ++ "?" ++ urlEncodeVars [("query", createConstructQuery q)]
+constructQuery' :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> String -> IO (RDF.RDF a)
+constructQuery' ep q = do
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", q)]
   rdfGraph <- httpCallForRdf uri
   case rdfGraph of
     Left e -> error $ show e
     Right graph -> return graph
 
--- |Connect to remote 'EndPoint' and construct 'TriplesGraph' from given
---  'ConstructQuery' action. /Provisional implementation/.
-describeQuery :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> Query DescribeQuery -> IO (RDF.RDF a)
-describeQuery ep q = do
-  let uri = ep ++ "?" ++ urlEncodeVars [("query", createDescribeQuery q)]
+describeQuery' :: (RDF.Rdf a) => Database.HSparql.Connection.EndPoint -> String -> IO (RDF.RDF a)
+describeQuery' ep q = do
+  let uri = ep ++ "?" ++ urlEncodeVars [("query", q)]
   rdfGraph <- httpCallForRdf uri
   case rdfGraph of
     Left e -> error $ show e
