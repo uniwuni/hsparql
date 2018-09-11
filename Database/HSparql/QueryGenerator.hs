@@ -63,6 +63,7 @@ module Database.HSparql.QueryGenerator
   , min_
   , max_
   , avg
+  , groupConcat
 
   -- ** Builtin Functions
   , str
@@ -559,6 +560,10 @@ str = builtinFunc1 StrFunc
 lang :: BuiltinFunc1
 lang = builtinFunc1 LangFunc
 
+-- | Aggregate a column by string concatenation with a separator.
+groupConcat :: Variable -> String -> Expr
+groupConcat term sep = ParameterizedCall "GROUP_CONCAT" term [("separator", "\"" ++ sep ++ "\"")]
+
 langMatches :: BuiltinFunc2
 langMatches = builtinFunc2 LangMatchesFunc
 
@@ -718,6 +723,7 @@ data Expr = OrExpr [Expr]
           | NumericExpr NumericExpr
           | BuiltinCall Function [Expr]
           | VarOrTermExpr VarOrTerm
+          | ParameterizedCall String Variable [(String, String)]
           deriving (Show)
 
 data SelectExpr = SelectExpr Expr Variable
@@ -897,7 +903,10 @@ instance QueryShow Expr where
           qshow' (RelationalExpr rel e1 e2) = wrap $ qshow e1 ++ qshow rel ++ qshow e2
           qshow' (NumericExpr e')   = wrap $ qshow e'
           qshow' (BuiltinCall f es) = wrap $ qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
+          qshow' (ParameterizedCall f e' kwargs) = f ++ "(" ++ qshow e' ++ " ; " ++ (intercalate ";" $ map pair kwargs) ++ ")"
           wrap e = "(" ++ e ++ ")"
+          pair (k, v) = k ++ "=" ++ v
+
 
 instance QueryShow SelectExpr where
   qshow (SelectVar v) = qshow v
