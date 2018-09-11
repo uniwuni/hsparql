@@ -561,8 +561,8 @@ lang :: BuiltinFunc1
 lang = builtinFunc1 LangFunc
 
 -- | Aggregate a column by string concatenation with a separator.
-groupConcat :: Variable -> String -> Expr
-groupConcat term sep = ParameterizedCall "GROUP_CONCAT" term [("separator", "\"" ++ sep ++ "\"")]
+groupConcat :: (TermLike a) => a -> String -> Expr
+groupConcat x sep = ParameterizedCall GroupConcat [expr x] [("separator", "\"" ++ sep ++ "\"")]
 
 langMatches :: BuiltinFunc2
 langMatches = builtinFunc2 LangMatchesFunc
@@ -716,6 +716,8 @@ data Function = CountFunc| SumFunc | MinFunc | MaxFunc | AvgFunc
               | RegexFunc
               deriving (Show)
 
+data ParameterizedFunction = GroupConcat deriving (Show)
+
 data Expr = OrExpr [Expr]
           | AndExpr [Expr]
           | NegatedExpr Expr
@@ -723,7 +725,7 @@ data Expr = OrExpr [Expr]
           | NumericExpr NumericExpr
           | BuiltinCall Function [Expr]
           | VarOrTermExpr VarOrTerm
-          | ParameterizedCall String Variable [(String, String)]
+          | ParameterizedCall ParameterizedFunction [Expr] [(String, String)]
           deriving (Show)
 
 data SelectExpr = SelectExpr Expr Variable
@@ -894,6 +896,9 @@ instance QueryShow Function where
   qshow IsLiteralFunc   = "isLiteral"
   qshow RegexFunc       = "REGEX"
 
+instance QueryShow ParameterizedFunction where
+  qshow GroupConcat = "GROUP_CONCAT"
+
 instance QueryShow Expr where
   qshow = qshow'
     where qshow' (VarOrTermExpr vt) = qshow vt
@@ -903,7 +908,7 @@ instance QueryShow Expr where
           qshow' (RelationalExpr rel e1 e2) = wrap $ qshow e1 ++ qshow rel ++ qshow e2
           qshow' (NumericExpr e')   = wrap $ qshow e'
           qshow' (BuiltinCall f es) = wrap $ qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ ")"
-          qshow' (ParameterizedCall f e' kwargs) = f ++ "(" ++ qshow e' ++ " ; " ++ (intercalate ";" $ map pair kwargs) ++ ")"
+          qshow' (ParameterizedCall f es kwargs) = wrap $ qshow f ++ "(" ++ intercalate ", " (map qshow es) ++ " ; " ++ (intercalate "," $ map pair kwargs) ++ ")"
           wrap e = "(" ++ e ++ ")"
           pair (k, v) = k ++ "=" ++ v
 
