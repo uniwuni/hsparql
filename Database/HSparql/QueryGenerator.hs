@@ -77,6 +77,19 @@ module Database.HSparql.QueryGenerator
   , isBlank
   , isLiteral
   , regex, regexOpts
+  , strlen
+  , substr
+  , ucase, lcase
+  , strstarts, strends
+  , contains
+  , strbefore, strafter
+  , abs_
+  , round_
+  , ceil
+  , floor_
+  , concat_
+  , replace
+  , rand
 
   -- * Printing Queries
   , qshow
@@ -527,6 +540,10 @@ notExpr :: (TermLike a) => a -> Expr
 notExpr = NegatedExpr . expr
 
 -- Builtin Functions
+type BuiltinFunc0 = Expr
+builtinFunc0 :: Function -> BuiltinFunc0
+builtinFunc0 f = BuiltinCall f []
+
 type BuiltinFunc1 = forall a . (TermLike a) => a -> Expr
 builtinFunc1 :: Function -> BuiltinFunc1
 builtinFunc1 f x = BuiltinCall f [expr x]
@@ -559,6 +576,71 @@ str = builtinFunc1 StrFunc
 
 lang :: BuiltinFunc1
 lang = builtinFunc1 LangFunc
+
+
+-- | strlen ( string )
+strlen :: BuiltinFunc1
+strlen = builtinFunc1 StrLenFunc
+
+-- | substr ( string beginPosition stringLength )
+substr :: BuiltinFunc1
+substr = builtinFunc1 SubStrFunc
+
+-- | ucase ( string )
+ucase :: BuiltinFunc1
+ucase = builtinFunc1 UcaseFunc
+
+-- | lcase ( string )
+lcase :: BuiltinFunc1
+lcase = builtinFunc1 LcaseFunc
+
+-- | strstarts ( string comparisonString )
+strstarts :: BuiltinFunc2
+strstarts = builtinFunc2 StrStartsFunc
+
+-- | strends ( string comparisonString )
+strends :: BuiltinFunc2
+strends = builtinFunc2 StrEndsFunc
+
+-- | contains ( string comparisonString )
+contains :: BuiltinFunc2
+contains = builtinFunc2 ContainsFunc
+
+-- | strbefore ( string comparisonString )
+strbefore :: BuiltinFunc2
+strbefore = builtinFunc2 StrBeforeFunc
+
+-- | strafter ( string comparisonString )
+strafter :: BuiltinFunc2
+strafter = builtinFunc2 StrAfterFunc
+
+-- | concat_ ( string comparisonString )
+concat_ :: BuiltinFunc2
+concat_ = builtinFunc2 ConcatFunc
+
+-- | replace ( string pattern replacement )
+replace :: BuiltinFunc3
+replace = builtinFunc3 ReplaceFunc
+
+-- | abs_ ( number )
+abs_ :: BuiltinFunc1
+abs_ = builtinFunc1 AbsFunc
+
+-- | round ( number )
+round_ :: BuiltinFunc1
+round_ = builtinFunc1 RoundFunc
+
+-- | ceil ( number )
+ceil :: BuiltinFunc1
+ceil = builtinFunc1 CeilFunc
+
+-- | floor ( number )
+floor_ :: BuiltinFunc1
+floor_ = builtinFunc1 FloorFunc
+
+-- | rand ( )
+rand :: BuiltinFunc0
+rand = builtinFunc0 RandFunc
 
 -- | Aggregate a column by string concatenation with a separator.
 groupConcat :: (TermLike a) => a -> String -> Expr
@@ -709,11 +791,15 @@ data NumericExpr = NumericLiteralExpr Integer
 data Relation = Equal | NotEqual | LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual
               deriving (Show)
 
-data Function = CountFunc| SumFunc | MinFunc | MaxFunc | AvgFunc
+data Function = CountFunc | SumFunc | MinFunc | MaxFunc | AvgFunc
               | StrFunc | LangFunc | LangMatchesFunc
               | DataTypeFunc | BoundFunc | SameTermFunc
               | IsIRIFunc | IsURIFunc | IsBlankFunc | IsLiteralFunc
               | RegexFunc
+              | StrLenFunc | SubStrFunc | UcaseFunc | LcaseFunc
+              | StrStartsFunc | StrEndsFunc | ContainsFunc | StrBeforeFunc
+              | StrAfterFunc | ConcatFunc | ReplaceFunc
+              | AbsFunc | RoundFunc | CeilFunc | FloorFunc | RandFunc
               deriving (Show)
 
 data ParameterizedFunction = GroupConcat deriving (Show)
@@ -895,6 +981,22 @@ instance QueryShow Function where
   qshow IsBlankFunc     = "isBlank"
   qshow IsLiteralFunc   = "isLiteral"
   qshow RegexFunc       = "REGEX"
+  qshow StrLenFunc      = "STRLEN"
+  qshow SubStrFunc      = "SUBSTR"
+  qshow UcaseFunc       = "UCASE"
+  qshow LcaseFunc       = "LCASE"
+  qshow StrStartsFunc   = "STRSTARTS"
+  qshow StrEndsFunc     = "STARTENDS"
+  qshow ContainsFunc    = "CONTAINS"
+  qshow StrBeforeFunc   = "STRBEFORE"
+  qshow StrAfterFunc    = "STRAFTER"
+  qshow ConcatFunc      = "CONCAT"
+  qshow ReplaceFunc     = "REPLACE"
+  qshow AbsFunc         = "ABS"
+  qshow RoundFunc       = "ROUND"
+  qshow CeilFunc        = "CEIL"
+  qshow FloorFunc       = "FLOOR"
+  qshow RandFunc        = "RAND"
 
 instance QueryShow ParameterizedFunction where
   qshow GroupConcat = "GROUP_CONCAT"
