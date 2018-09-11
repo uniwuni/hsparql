@@ -20,6 +20,7 @@ module Database.HSparql.QueryGenerator
   , describeIRI, describeIRI_
   , optional, optional_
   , union, union_
+  , exists, notExists
   , filterExpr, filterExpr_
   , bind, bind_
   , subQuery, subQuery_
@@ -276,6 +277,18 @@ union q1 q2 = do
 
 union_ :: Query a -> Query b -> Query ()
 union_ a b = void $ union a b
+
+exists :: Query a -> Query Pattern
+exists q = do
+  let p = execQuery0 q pattern
+      exists' = ExistsPattern p
+  return exists'
+
+notExists :: Query a -> Query Pattern
+notExists q = do
+  let p = execQuery0 q pattern
+      notExists' = NotExistsPattern p
+  return notExists'
 
 -- |Restrict results to only those for which the given expression is true.
 filterExpr :: (TermLike a) => a -> Query Pattern
@@ -827,6 +840,8 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
              | SubQuery QueryData
+             | ExistsPattern GroupGraphPattern
+             | NotExistsPattern GroupGraphPattern
 
 data GroupGraphPattern = GroupGraphPattern [Pattern]
 
@@ -1028,6 +1043,8 @@ instance QueryShow Pattern where
   qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
+  qshow (ExistsPattern p) = "EXISTS" ++ qshow p
+  qshow (NotExistsPattern p) = "NOT EXISTS" ++ qshow p
   qshow (SubQuery qd)   = intercalate " " ["{", qshow qd, "}"]
 
 instance QueryShow [Pattern] where
