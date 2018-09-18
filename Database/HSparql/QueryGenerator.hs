@@ -20,6 +20,7 @@ module Database.HSparql.QueryGenerator
   , describeIRI, describeIRI_
   , optional, optional_
   , union, union_
+  , exists, notExists
   , filterExpr, filterExpr_
   , bind, bind_
   , subQuery, subQuery_
@@ -77,6 +78,19 @@ module Database.HSparql.QueryGenerator
   , isBlank
   , isLiteral
   , regex, regexOpts
+  , strlen
+  , substr
+  , ucase, lcase
+  , strstarts, strends
+  , contains
+  , strbefore, strafter
+  , abs_
+  , round_
+  , ceil
+  , floor_
+  , concat_
+  , replace
+  , rand
 
   -- * Printing Queries
   , qshow
@@ -263,6 +277,18 @@ union q1 q2 = do
 
 union_ :: Query a -> Query b -> Query ()
 union_ a b = void $ union a b
+
+exists :: Query a -> Query Pattern
+exists q = do
+  let p = execQuery0 q pattern
+      exists' = ExistsPattern p
+  return exists'
+
+notExists :: Query a -> Query Pattern
+notExists q = do
+  let p = execQuery0 q pattern
+      notExists' = NotExistsPattern p
+  return notExists'
 
 -- |Restrict results to only those for which the given expression is true.
 filterExpr :: (TermLike a) => a -> Query Pattern
@@ -527,6 +553,10 @@ notExpr :: (TermLike a) => a -> Expr
 notExpr = NegatedExpr . expr
 
 -- Builtin Functions
+type BuiltinFunc0 = Expr
+builtinFunc0 :: Function -> BuiltinFunc0
+builtinFunc0 f = BuiltinCall f []
+
 type BuiltinFunc1 = forall a . (TermLike a) => a -> Expr
 builtinFunc1 :: Function -> BuiltinFunc1
 builtinFunc1 f x = BuiltinCall f [expr x]
@@ -539,26 +569,97 @@ type BuiltinFunc3 = forall a b c . (TermLike a, TermLike b, TermLike c) => a -> 
 builtinFunc3 :: Function -> BuiltinFunc3
 builtinFunc3 f x y z = BuiltinCall f [expr x, expr y, expr z]
 
+-- | Aggregate by count
 count :: BuiltinFunc1
 count = builtinFunc1 CountFunc
 
+-- | Aggregate by sum
 sum_ :: BuiltinFunc1
 sum_ = builtinFunc1 SumFunc
 
+-- | Aggregate by minimum value
 min_ :: BuiltinFunc1
 min_ = builtinFunc1 MinFunc
 
+-- | Aggregate by maximum value
 max_ :: BuiltinFunc1
 max_ = builtinFunc1 MaxFunc
 
+-- | Aggregate by average
 avg :: BuiltinFunc1
 avg = builtinFunc1 AvgFunc
 
+-- | Cast as a string
 str :: BuiltinFunc1
 str = builtinFunc1 StrFunc
 
+-- | Get the language of this element
 lang :: BuiltinFunc1
 lang = builtinFunc1 LangFunc
+
+-- | strlen ( string ) - get the length of a string
+strlen :: BuiltinFunc1
+strlen = builtinFunc1 StrLenFunc
+
+-- | substr ( string beginPosition stringLength ) - get a substring
+substr :: BuiltinFunc1
+substr = builtinFunc1 SubStrFunc
+
+-- | ucase ( string ) - convert to upper case
+ucase :: BuiltinFunc1
+ucase = builtinFunc1 UcaseFunc
+
+-- | lcase ( string ) - convert to lower case
+lcase :: BuiltinFunc1
+lcase = builtinFunc1 LcaseFunc
+
+-- | strstarts ( string x ) - return true if x matches the beginning of string
+strstarts :: BuiltinFunc2
+strstarts = builtinFunc2 StrStartsFunc
+
+-- | strends ( string x ) - return true if x matches the end of string
+strends :: BuiltinFunc2
+strends = builtinFunc2 StrEndsFunc
+
+-- | contains ( string x ) - return true if x matches anywhere in string
+contains :: BuiltinFunc2
+contains = builtinFunc2 ContainsFunc
+
+-- | strbefore ( string x ) - return the string preceding a match to x
+strbefore :: BuiltinFunc2
+strbefore = builtinFunc2 StrBeforeFunc
+
+-- | strafter ( string x ) - return the string after a match to x
+strafter :: BuiltinFunc2
+strafter = builtinFunc2 StrAfterFunc
+
+-- | concat_ ( x y ) - concatenate strings x and y
+concat_ :: BuiltinFunc2
+concat_ = builtinFunc2 ConcatFunc
+
+-- | replace ( string p r ) - replace literal p with literal r in string
+replace :: BuiltinFunc3
+replace = builtinFunc3 ReplaceFunc
+
+-- | abs_ ( x ) - take the absolute value of number x
+abs_ :: BuiltinFunc1
+abs_ = builtinFunc1 AbsFunc
+
+-- | round ( x ) - round x to the nearest integer
+round_ :: BuiltinFunc1
+round_ = builtinFunc1 RoundFunc
+
+-- | ceil ( number ) - round x up to the nearest integer
+ceil :: BuiltinFunc1
+ceil = builtinFunc1 CeilFunc
+
+-- | floor ( number ) - round x down to the nearest integer
+floor_ :: BuiltinFunc1
+floor_ = builtinFunc1 FloorFunc
+
+-- | rand ( ) - produce a random number between 0 and 1
+rand :: BuiltinFunc0
+rand = builtinFunc0 RandFunc
 
 -- | Aggregate a column by string concatenation with a separator.
 groupConcat :: (TermLike a) => a -> String -> Expr
@@ -709,11 +810,15 @@ data NumericExpr = NumericLiteralExpr Integer
 data Relation = Equal | NotEqual | LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual
               deriving (Show)
 
-data Function = CountFunc| SumFunc | MinFunc | MaxFunc | AvgFunc
+data Function = CountFunc | SumFunc | MinFunc | MaxFunc | AvgFunc
               | StrFunc | LangFunc | LangMatchesFunc
               | DataTypeFunc | BoundFunc | SameTermFunc
               | IsIRIFunc | IsURIFunc | IsBlankFunc | IsLiteralFunc
               | RegexFunc
+              | StrLenFunc | SubStrFunc | UcaseFunc | LcaseFunc
+              | StrStartsFunc | StrEndsFunc | ContainsFunc | StrBeforeFunc
+              | StrAfterFunc | ConcatFunc | ReplaceFunc
+              | AbsFunc | RoundFunc | CeilFunc | FloorFunc | RandFunc
               deriving (Show)
 
 data ParameterizedFunction = GroupConcat deriving (Show)
@@ -741,6 +846,8 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
              | SubQuery QueryData
+             | ExistsPattern GroupGraphPattern
+             | NotExistsPattern GroupGraphPattern
 
 data GroupGraphPattern = GroupGraphPattern [Pattern]
 
@@ -895,6 +1002,22 @@ instance QueryShow Function where
   qshow IsBlankFunc     = "isBlank"
   qshow IsLiteralFunc   = "isLiteral"
   qshow RegexFunc       = "REGEX"
+  qshow StrLenFunc      = "STRLEN"
+  qshow SubStrFunc      = "SUBSTR"
+  qshow UcaseFunc       = "UCASE"
+  qshow LcaseFunc       = "LCASE"
+  qshow StrStartsFunc   = "STRSTARTS"
+  qshow StrEndsFunc     = "STARTENDS"
+  qshow ContainsFunc    = "CONTAINS"
+  qshow StrBeforeFunc   = "STRBEFORE"
+  qshow StrAfterFunc    = "STRAFTER"
+  qshow ConcatFunc      = "CONCAT"
+  qshow ReplaceFunc     = "REPLACE"
+  qshow AbsFunc         = "ABS"
+  qshow RoundFunc       = "ROUND"
+  qshow CeilFunc        = "CEIL"
+  qshow FloorFunc       = "FLOOR"
+  qshow RandFunc        = "RAND"
 
 instance QueryShow ParameterizedFunction where
   qshow GroupConcat = "GROUP_CONCAT"
@@ -926,6 +1049,8 @@ instance QueryShow Pattern where
   qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
   qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
+  qshow (ExistsPattern p) = "EXISTS" ++ qshow p
+  qshow (NotExistsPattern p) = "NOT EXISTS" ++ qshow p
   qshow (SubQuery qd)   = intercalate " " ["{", qshow qd, "}"]
 
 instance QueryShow [Pattern] where
