@@ -569,89 +569,95 @@ type BuiltinFunc3 = forall a b c . (TermLike a, TermLike b, TermLike c) => a -> 
 builtinFunc3 :: Function -> BuiltinFunc3
 builtinFunc3 f x y z = BuiltinCall f [expr x, expr y, expr z]
 
+-- | Aggregate by count
 count :: BuiltinFunc1
 count = builtinFunc1 CountFunc
 
+-- | Aggregate by sum
 sum_ :: BuiltinFunc1
 sum_ = builtinFunc1 SumFunc
 
+-- | Aggregate by minimum value
 min_ :: BuiltinFunc1
 min_ = builtinFunc1 MinFunc
 
+-- | Aggregate by maximum value
 max_ :: BuiltinFunc1
 max_ = builtinFunc1 MaxFunc
 
+-- | Aggregate by average
 avg :: BuiltinFunc1
 avg = builtinFunc1 AvgFunc
 
+-- | Cast as a string
 str :: BuiltinFunc1
 str = builtinFunc1 StrFunc
 
+-- | Get the language of this element
 lang :: BuiltinFunc1
 lang = builtinFunc1 LangFunc
 
-
--- | strlen ( string )
+-- | strlen ( string ) - get the length of a string
 strlen :: BuiltinFunc1
 strlen = builtinFunc1 StrLenFunc
 
--- | substr ( string beginPosition stringLength )
+-- | substr ( string beginPosition stringLength ) - get a substring
 substr :: BuiltinFunc1
 substr = builtinFunc1 SubStrFunc
 
--- | ucase ( string )
+-- | ucase ( string ) - convert to upper case
 ucase :: BuiltinFunc1
 ucase = builtinFunc1 UcaseFunc
 
--- | lcase ( string )
+-- | lcase ( string ) - convert to lower case
 lcase :: BuiltinFunc1
 lcase = builtinFunc1 LcaseFunc
 
--- | strstarts ( string comparisonString )
+-- | strstarts ( string x ) - return true if x matches the beginning of string
 strstarts :: BuiltinFunc2
 strstarts = builtinFunc2 StrStartsFunc
 
--- | strends ( string comparisonString )
+-- | strends ( string x ) - return true if x matches the end of string
 strends :: BuiltinFunc2
 strends = builtinFunc2 StrEndsFunc
 
--- | contains ( string comparisonString )
+-- | contains ( string x ) - return true if x matches anywhere in string
 contains :: BuiltinFunc2
 contains = builtinFunc2 ContainsFunc
 
--- | strbefore ( string comparisonString )
+-- | strbefore ( string x ) - return the string preceding a match to x
 strbefore :: BuiltinFunc2
 strbefore = builtinFunc2 StrBeforeFunc
 
--- | strafter ( string comparisonString )
+-- | strafter ( string x ) - return the string after a match to x
 strafter :: BuiltinFunc2
 strafter = builtinFunc2 StrAfterFunc
 
--- | concat_ ( string comparisonString )
+-- | concat_ ( x y ) - concatenate strings x and y
 concat_ :: BuiltinFunc2
 concat_ = builtinFunc2 ConcatFunc
 
--- | replace ( string pattern replacement )
+-- | replace ( string p r ) - replace literal p with literal r in string
 replace :: BuiltinFunc3
 replace = builtinFunc3 ReplaceFunc
 
--- | abs_ ( number )
+-- | abs_ ( x ) - take the absolute value of number x
 abs_ :: BuiltinFunc1
 abs_ = builtinFunc1 AbsFunc
 
--- | round ( number )
+-- | round ( x ) - round x to the nearest integer
 round_ :: BuiltinFunc1
 round_ = builtinFunc1 RoundFunc
 
--- | ceil ( number )
+-- | ceil ( number ) - round x up to the nearest integer
 ceil :: BuiltinFunc1
 ceil = builtinFunc1 CeilFunc
 
--- | floor ( number )
+-- | floor ( number ) - round x down to the nearest integer
 floor_ :: BuiltinFunc1
 floor_ = builtinFunc1 FloorFunc
 
--- | rand ( )
+-- | rand ( ) - produce a random number between 0 and 1
 rand :: BuiltinFunc0
 rand = builtinFunc0 RandFunc
 
