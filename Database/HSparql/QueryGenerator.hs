@@ -12,6 +12,7 @@ module Database.HSparql.QueryGenerator
   -- * Query Actions
   , prefix
   , var
+  , embeddedTriple
   , Database.HSparql.QueryGenerator.triple, triple_
   , mkPredicateObject
   , constructTriple, constructTriple_
@@ -198,6 +199,12 @@ var = do qis <- gets (NE.init . subQueryIdx)
          let sqis = NE.fromList (qis ++ [n])
          modify $ \s -> s { varsIdx = n + 1 }
          return $ Variable sqis
+
+-- |Create an embedded triple usable in an expression.
+--  See SPARQL* at <https://wiki.blazegraph.com/wiki/index.php/Reification_Done_Right>
+--  or <https://arxiv.org/abs/1406.3399>.
+embeddedTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> EmbeddedTriple
+embeddedTriple a b c = EmbeddedTriple $ EmbeddedTriple' (varOrTerm a) (varOrTerm b) (varOrTerm c)
 
 -- |Restrict the query to only results for which values match constants in this
 --  triple, or for which the variables can be bound.
@@ -410,6 +417,9 @@ instance TermLike Variable where
 instance TermLike IRIRef where
   varOrTerm = Term . IRIRefTerm
 
+instance TermLike EmbeddedTriple where
+  varOrTerm (EmbeddedTriple v) = v
+
 instance TermLike BlankNodePattern where
   varOrTerm [] = Term (BNode Nothing)
   varOrTerm xs = BlankNodePattern' xs
@@ -452,6 +462,7 @@ class (TermLike a) => SubjectTermLike a
 
 instance SubjectTermLike IRIRef
 instance SubjectTermLike Variable
+instance SubjectTermLike EmbeddedTriple
 instance SubjectTermLike BlankNodePattern
 
 -- |Restriction of TermLike to the role of predicate.
@@ -465,6 +476,7 @@ class (TermLike a) => ObjectTermLike a
 
 instance ObjectTermLike IRIRef
 instance ObjectTermLike Variable
+instance ObjectTermLike EmbeddedTriple
 instance ObjectTermLike BlankNodePattern
 instance ObjectTermLike Expr
 instance ObjectTermLike Integer
@@ -733,6 +745,9 @@ data Prefix = Prefix T.Text RDF.Node
 data Variable = Variable (NonEmpty Int)
               deriving (Show)
 
+data EmbeddedTriple = EmbeddedTriple VarOrTerm
+              deriving (Show)
+
 data DynamicPredicate = forall a. (PredicateTermLike a, QueryShow a, Show a) => DynamicPredicate a
 data DynamicObject = forall a. (ObjectTermLike a, QueryShow a, Show a) => DynamicObject a
 type DynamicPredicateObject = (DynamicPredicate, DynamicObject)
@@ -790,6 +805,7 @@ data GraphTerm = IRIRefTerm IRIRef
 
 data VarOrTerm = Var Variable
                | Term GraphTerm
+               | EmbeddedTriple' VarOrTerm VarOrTerm VarOrTerm
                | BlankNodePattern' BlankNodePattern
                deriving (Show)
 
@@ -848,13 +864,17 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | SubQuery QueryData
              | ExistsPattern GroupGraphPattern
              | NotExistsPattern GroupGraphPattern
+               deriving (Show)
 
 data GroupGraphPattern = GroupGraphPattern [Pattern]
+               deriving (Show)
 
 newtype GroupBy = GroupBy Expr
+               deriving (Show)
 
 data OrderBy = Asc Expr
              | Desc Expr
+               deriving (Show)
 
 -- Auxiliary, but fairly useful
 -- TODO don't add to end
@@ -880,9 +900,11 @@ data QueryData = QueryData
     , ordering   :: [OrderBy]
     , limits     :: Limit
     }
+               deriving (Show)
 
 
 data QueryType = SelectType | ConstructType | AskType | UpdateType | DescribeType | TypeNotSet
+               deriving (Show)
 
 data ConstructQuery = ConstructQuery
     { queryConstructs :: [Pattern] }
@@ -960,6 +982,7 @@ instance QueryShow GraphTerm where
 instance QueryShow VarOrTerm where
   qshow (Var  v) = qshow v
   qshow (Term t) = qshow t
+  qshow (EmbeddedTriple' a b c) = intercalate " " ["<<", qshow a, qshow b, qshow c, ">>"]
   qshow (BlankNodePattern' bn) = qshow bn
 
 instance QueryShow [VarOrTerm] where

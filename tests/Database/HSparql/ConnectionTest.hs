@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Database.HSparql.ConnectionTest ( testSuite ) where
 
 import Test.Framework (testGroup, Test)
@@ -6,6 +8,7 @@ import Test.HUnit
 
 import qualified Data.Map as Map
 import qualified Data.RDF as RDF
+import Data.Text
 
 import Database.HSparql.Connection
 import Database.HSparql.QueryGenerator
@@ -14,6 +17,7 @@ testSuite :: [Test.Framework.Test]
 testSuite = [
     testGroup "Database.HSparql.Connection tests" [
         testCase "selectQuery" test_selectQuery
+      , testCase "selectReifiedTripleQuery" test_selectReifiedTripleQuery
       , testCase "askQuery" test_askQuery
       , testCase "constructQuery" test_constructQuery
       , testCase "describeQuery" test_describeQuery
@@ -43,6 +47,29 @@ test_selectQuery =
               _ <- triple x (foaf .:. "name") name
 
               select [SelectVar name]
+
+test_selectReifiedTripleQuery :: IO ()
+test_selectReifiedTripleQuery =
+  let expectedBVars = Just [ [ Bound $ RDF.LNode $ RDF.TypedL "42" "http://www.w3.org/2001/XMLSchema#integer"
+                             , Bound $ RDF.LNode $ RDF.PlainL "Rumors"
+                             ] ]
+  in do
+    bvars <- selectQuery endPoint query
+    assertEqual "bound variables" expectedBVars bvars
+
+    where endPoint = "http://127.0.0.1:3000"
+          query = do
+              foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+              dct      <- prefix "dct" (iriRef "http://purl.org/dc/elements/1.1/")
+
+              bob <- var
+              age <- var
+              src <- var
+
+              triple_ bob (foaf .:. "name") ("Bob" :: Text)
+              triple_ (embeddedTriple bob (foaf .:. "age") age) (dct .:. "source") src
+
+              selectVars [age, src]
 
 test_askQuery :: IO ()
 test_askQuery = do
