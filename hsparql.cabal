@@ -50,6 +50,7 @@ test-suite test-hsparql
                  , wai >= 3.0.0
                  , warp >= 3.0.1
                  , network-uri
+                 , string-qq
   hs-source-dirs: Database, tests
   other-modules: Database.HSparql.ConnectionTest
   extensions:  OverloadedStrings, FlexibleInstances

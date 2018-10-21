@@ -953,7 +953,7 @@ instance QueryShow Prefix where
   qshow (Prefix pre ref) = "PREFIX " ++ (T.unpack pre) ++ ": " ++ qshow ref
 
 instance QueryShow [Prefix] where
-  qshow = unwords . fmap qshow
+  qshow = unwords . reverse . fmap qshow
 
 instance QueryShow Variable where
   qshow (Variable vs) = "?x" ++ indexes
@@ -1074,13 +1074,13 @@ instance QueryShow Pattern where
   qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
   qshow (ExistsPattern p) = "EXISTS" ++ qshow p
   qshow (NotExistsPattern p) = "NOT EXISTS" ++ qshow p
-  qshow (SubQuery qd)   = intercalate " " ["{", qshow qd, "}"]
+  qshow (SubQuery qd)   = intercalate " " ["{ ", qshow qd, " }"]
 
 instance QueryShow [Pattern] where
   qshow = unwords . fmap qshow
 
 instance QueryShow GroupGraphPattern where
-  qshow (GroupGraphPattern ps) = "{" ++ qshow ps ++ "}"
+  qshow (GroupGraphPattern ps) = "{ " ++ qshow ps ++ " }"
 
 instance QueryShow GroupBy where
   qshow (GroupBy e) = qshow e

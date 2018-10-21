@@ -66,7 +66,7 @@ CONSTRUCT {
   ?x example:hasName ?name
 }
 WHERE {
-  ?x dbprop:genre resource:Web_browser
+  ?x dbprop:genre dbpedia:Web_browser
   ?x foaf:name ?name
   ?x foaf:page ?page
 }
