@@ -53,6 +53,7 @@ test-suite test-hsparql
                  , string-qq
   hs-source-dirs: Database, tests
   other-modules: Database.HSparql.ConnectionTest
+               , Database.HSparql.QueryGeneratorTest
   extensions:  OverloadedStrings, FlexibleInstances
   ghc-options: -Wall -Wcompat
 

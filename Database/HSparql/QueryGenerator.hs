@@ -21,8 +21,8 @@ module Database.HSparql.QueryGenerator
   , describeIRI, describeIRI_
   , optional, optional_
   , union, union_
-  , exists, notExists
   , filterExpr, filterExpr_
+  , filterExists, filterExists_, filterNotExists, filterNotExists_
   , bind, bind_
   , subQuery, subQuery_
   , select
@@ -285,17 +285,25 @@ union q1 q2 = do
 union_ :: Query a -> Query b -> Query ()
 union_ a b = void $ union a b
 
-exists :: Query a -> Query Pattern
-exists q = do
+filterExists :: Query a -> Query Pattern
+filterExists q = do
   let p = execQuery0 q pattern
-      exists' = ExistsPattern p
-  return exists'
+      filterExists' = FilterExistsPattern p
+  modify $ \s -> s { pattern = appendPattern filterExists' (pattern s) }
+  return filterExists'
 
-notExists :: Query a -> Query Pattern
-notExists q = do
+filterExists_ :: Query a -> Query ()
+filterExists_ = void . filterExists
+
+filterNotExists :: Query a -> Query Pattern
+filterNotExists q = do
   let p = execQuery0 q pattern
-      notExists' = NotExistsPattern p
-  return notExists'
+      filterNotExists' = FilterNotExistsPattern p
+  modify $ \s -> s { pattern = appendPattern filterNotExists' (pattern s) }
+  return filterNotExists'
+
+filterNotExists_ :: Query a -> Query ()
+filterNotExists_ = void . filterNotExists
 
 -- |Restrict results to only those for which the given expression is true.
 filterExpr :: (TermLike a) => a -> Query Pattern
@@ -330,7 +338,7 @@ subQuery q = do
   -- Merge prefixes
   prefixesParentQuery <- gets prefixes
   let prefixesSubQuery = prefixes subQueryData
-      newPrefixes = prefixesParentQuery `L.union` prefixesSubQuery
+      newPrefixes = prefixesSubQuery `L.union` prefixesParentQuery
   -- Create the subquery pattern and remove prefixes from the subquery
   let sq = SubQuery $ subQueryData { prefixes = [] }
   -- Append the subquery pattern, update the subquery index and the prefixes.
@@ -858,12 +866,12 @@ e `as` v = SelectExpr e v
 
 data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | Filter Expr
+             | FilterExistsPattern GroupGraphPattern
+             | FilterNotExistsPattern GroupGraphPattern
              | Bind Expr Variable
              | OptionalGraphPattern GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
              | SubQuery QueryData
-             | ExistsPattern GroupGraphPattern
-             | NotExistsPattern GroupGraphPattern
                deriving (Show)
 
 data GroupGraphPattern = GroupGraphPattern [Pattern]
@@ -1067,14 +1075,14 @@ instance QueryShow [SelectExpr] where
   qshow = intercalate " " . fmap qshow
 
 instance QueryShow Pattern where
-  qshow (QTriple a b c) = intercalate " " [qshow a, qshow b, qshow c, "."]
-  qshow (Filter e)      = "FILTER " ++ qshow e ++ " ."
-  qshow (Bind e v)      = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
-  qshow (OptionalGraphPattern p)  = "OPTIONAL " ++ qshow p
-  qshow (UnionGraphPattern p1 p2) = qshow p1 ++ " UNION " ++ qshow p2
-  qshow (ExistsPattern p) = "EXISTS" ++ qshow p
-  qshow (NotExistsPattern p) = "NOT EXISTS" ++ qshow p
-  qshow (SubQuery qd)   = intercalate " " ["{ ", qshow qd, " }"]
+  qshow (QTriple a b c)            = intercalate " " [qshow a, qshow b, qshow c, "."]
+  qshow (Filter e)                 = "FILTER " ++ qshow e ++ " ."
+  qshow (FilterExistsPattern p)    = "FILTER EXISTS " ++ qshow p
+  qshow (FilterNotExistsPattern p) = "FILTER NOT EXISTS " ++ qshow p
+  qshow (Bind e v)                 = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
+  qshow (OptionalGraphPattern p)   = "OPTIONAL " ++ qshow p
+  qshow (UnionGraphPattern p1 p2)  = qshow p1 ++ " UNION " ++ qshow p2
+  qshow (SubQuery qd)              = intercalate " " ["{ ", qshow qd, " }"]
 
 instance QueryShow [Pattern] where
   qshow = unwords . fmap qshow

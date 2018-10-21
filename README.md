@@ -212,6 +212,9 @@ Here's the respective type:
 askQuery :: EndPoint -> Query AskQuery -> IO Bool
 ```
 
+### More examples
+
+Some extra examples can be found in [tests](tests/Database/HSparql/QueryGeneratorTest.hs).
 
 ## TODOs
 

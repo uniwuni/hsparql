@@ -31,7 +31,11 @@ instance CreateQuery (Query DescribeQuery) where
   createQuery = T.pack . createDescribeQuery
 
 normalizeWhitespace :: Text -> Text
-normalizeWhitespace = T.strip . (T.replace "   " " ") . (T.replace "\n" " ")
+normalizeWhitespace = T.strip
+                      . (T.replace "  " " ")
+                      . (T.replace "  " " ")
+                      . (T.replace "  " " ")
+                      . (T.replace "\n" " ")
 
 queryTexts :: [(Text, Text)]
 queryTexts =
@@ -119,6 +123,108 @@ ASK {
         ask <- askTriple x (dbprop .:. "genre") (resource .:. "Web_browser")
 
         return AskQuery { queryAsk = [ask] }
+    )
+
+  -- https://github.com/robstewart57/hsparql/pull/31
+  , ( [s|
+PREFIX : <http://example1.com/>
+PREFIX ex: <http://example2.com/>
+SELECT ?x0 WHERE {
+  ?x0 :property1 :X .
+  FILTER ((?x1>(10))&&(?x1<(20))) .
+  {
+    SELECT ((AVG(?x0_0)) AS ?x1)
+    WHERE {
+      ?x0 :property2 [ex:property3 ?x0_0] .
+    }
+  }
+}
+|]
+    , createQuery $ do
+      p1 <- prefix "" (iriRef "http://example1.com/")
+      s <- var
+      v <- var
+      triple_ s (p1 .:. "property1") (p1 .:. "X")
+      filterExpr_ $ (v .>. (10::Integer)) .&&. (v .<. (20::Integer))
+      subQuery_ $ do
+        p2 <- prefix "ex" (iriRef "http://example2.com/")
+        v' <- var
+        triple_ s (p1 .:. "property2") [mkPredicateObject (p2 .:. "property3") v']
+        select [avg v' `as` v]
+      selectVars [s]
+    )
+
+  -- https://www.w3.org/TR/sparql11-query/#OptionalMatching
+  , ( [s|
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+SELECT ?x1 ?x2
+WHERE {
+  ?x0 foaf:name ?x1 .
+  OPTIONAL { ?x0 foaf:mbox ?x2 . }
+}
+|]
+    , createQuery $ do
+        foaf     <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+
+        x <- var
+        name <- var
+        mbox <- var
+
+        triple_ x (foaf .:. "name") name
+
+        optional_ $ do
+          triple_ x (foaf .:. "mbox") mbox
+
+        selectVars [name, mbox]
+    )
+
+  -- https://www.w3.org/TR/sparql11-query/#alternatives
+  , ( [s|
+PREFIX dc10: <http://purl.org/dc/elements/1.0/>
+PREFIX dc11: <http://purl.org/dc/elements/1.1/>
+
+SELECT ?x1
+WHERE { { ?x0 dc10:title ?x1 . } UNION { ?x0 dc11:title ?x1 . } }
+|]
+    , createQuery $ do
+        dc10     <- prefix "dc10" (iriRef "http://purl.org/dc/elements/1.0/")
+        dc11     <- prefix "dc11" (iriRef "http://purl.org/dc/elements/1.1/")
+
+        book <- var
+        title <- var
+
+        let tt10 = triple_ book (dc10 .:. "title") title
+            tt11 = triple_ book (dc11 .:. "title") title
+          in union_ tt10 tt11
+
+        selectVars [title]
+    )
+
+  -- https://www.w3.org/TR/sparql11-query/#neg-notexists
+  , ( [s|
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+SELECT ?x0
+WHERE
+{
+  ?x0 rdf:type foaf:Person .
+  FILTER NOT EXISTS { ?x0 foaf:name ?x1 . }
+}
+|]
+    , createQuery $ do
+        rdf  <- prefix "rdf" (iriRef "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+        foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+
+        person <- var
+        name <- var
+
+        triple_ person (rdf .:. "type") (foaf .:. "Person")
+
+        filterNotExists_ $ do
+          triple_ person (foaf .:. "name") name
+
+        selectVars [person]
     )
 
   ]
