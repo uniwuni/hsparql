@@ -125,6 +125,7 @@ import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import qualified Data.RDF as RDF
+import qualified Network.URI as URI
 
 -- State monads
 
@@ -972,7 +973,8 @@ instance QueryShow [Variable] where
 
 instance QueryShow IRIRef where
   qshow (AbsoluteIRI n) = qshow n
-  qshow (PrefixedName (Prefix pre _) s) = (T.unpack pre) ++ ":" ++ (T.unpack s)
+  qshow (PrefixedName (Prefix pre _) s) = (T.unpack pre) ++ ":" ++ (escape $ T.unpack s)
+    where escape = URI.escapeURIString URI.isUnescapedInURIComponent
 
 instance QueryShow (Maybe IRIRef) where
   qshow (Just r) = qshow r

@@ -227,6 +227,26 @@ WHERE
         selectVars [person]
     )
 
+  , ( [s|
+PREFIX ex: <http://example.com/>
+
+SELECT ?x0 ?x1
+WHERE
+{
+  ?x0 ex:foo%20bar ?x1 .
+}
+|]
+    , createQuery $ do
+        ex <- prefix "ex" (iriRef "http://example.com/")
+
+        s <- var
+        o <- var
+
+        triple_ s (ex .:. "foo bar") o
+
+        selectVars [s, o]
+    )
+
   ]
 
 testSuite :: [Test.Framework.Test]
