@@ -3,7 +3,9 @@
 module Main where
 
 import Database.HSparql.ConnectionTest
+import Database.HSparql.QueryGeneratorTest
 
+import Control.Monad (join)
 import Control.Concurrent (forkIO)
 import Network.HTTP.Types (status200)
 import Network.Wai
@@ -16,23 +18,24 @@ main =
      ropts <- interpretArgsOrExit []
      defaultMainWithOpts tests ropts
      where tests = Database.HSparql.ConnectionTest.testSuite
+             ++ Database.HSparql.QueryGeneratorTest.testSuite
 
 app :: Application
 app req respond = respond $ response req
    where
-     response req_ = case rawQueryString req_ of
-                      "?query=PREFIX%20foaf%3A%20%3Chttp%3A%2F%2Fxmlns.com%2Ffoaf%2F0.1%2F%3E%20PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fproperty%2F%3E%20PREFIX%20dbprop%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20SELECT%20%3Fx1%20WHERE%20%7B%3Fx0%20dbpedia%3Agenre%20dbprop%3AWeb_browser%20.%20%3Fx0%20foaf%3Aname%20%3Fx1%20.%7D"
-                          -> selectResponse
-                      "?query=PREFIX%20dct%3A%20%3Chttp%3A%2F%2Fpurl.org%2Fdc%2Felements%2F1.1%2F%3E%20PREFIX%20foaf%3A%20%3Chttp%3A%2F%2Fxmlns.com%2Ffoaf%2F0.1%2F%3E%20SELECT%20%3Fx1%20%3Fx2%20WHERE%20%7B%3Fx0%20foaf%3Aname%20%22Bob%22%20.%20%3C%3C%20%3Fx0%20foaf%3Aage%20%3Fx1%20%3E%3E%20dct%3Asource%20%3Fx2%20.%7D"
-                          -> selectReifiedTripleResponse
-                      "?query=PREFIX%20dbprop%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fproperty%2F%3E%20PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20ASK%20%7B%20%3Fx0%20dbprop%3Agenre%20dbpedia%3AWeb_browser%20.%20%7D"
-                          -> askResponse
-                      "?query=PREFIX%20example%3A%20%3Chttp%3A%2F%2Fwww.example.com%2F%3E%20PREFIX%20foaf%3A%20%3Chttp%3A%2F%2Fxmlns.com%2Ffoaf%2F0.1%2F%3E%20PREFIX%20dbprop%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fproperty%2F%3E%20PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20CONSTRUCT%20%7B%20%3Fx0%20example%3AhasName%20%3Fx1%20.%20%7D%20WHERE%20%7B%3Fx0%20dbprop%3Agenre%20dbpedia%3AWeb_browser%20.%20%3Fx0%20foaf%3Aname%20%3Fx1%20.%7D"
-                          -> constructResponse
-                      "?query=PREFIX%20dbpedia%3A%20%3Chttp%3A%2F%2Fdbpedia.org%2Fresource%2F%3E%20DESCRIBE%20dbpedia%3AEdinburgh%20WHERE%20%7B%7D"
-                          -> describeResponse
-                      raw_req
-                          -> error $ "Unexpected URI: \n\n" ++ show raw_req
+     response req_ = case (join $ lookup "query" $ queryString req_) of
+       Just "PREFIX dbprop: <http://dbpedia.org/resource/> PREFIX dbpedia: <http://dbpedia.org/property/> PREFIX foaf: <http://xmlns.com/foaf/0.1/> SELECT ?x1 WHERE { ?x0 dbpedia:genre dbprop:Web_browser . ?x0 foaf:name ?x1 . }"
+         -> selectResponse
+       Just "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX dct: <http://purl.org/dc/elements/1.1/> SELECT ?x1 ?x2 WHERE { ?x0 foaf:name \"Bob\" . << ?x0 foaf:age ?x1 >> dct:source ?x2 . }"
+         -> selectReifiedTripleResponse
+       Just "PREFIX dbpedia: <http://dbpedia.org/resource/> PREFIX dbprop: <http://dbpedia.org/property/> ASK { ?x0 dbprop:genre dbpedia:Web_browser . }"
+         -> askResponse
+       Just "PREFIX dbpedia: <http://dbpedia.org/resource/> PREFIX dbprop: <http://dbpedia.org/property/> PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX example: <http://www.example.com/> CONSTRUCT { ?x0 example:hasName ?x1 . } WHERE { ?x0 dbprop:genre dbpedia:Web_browser . ?x0 foaf:name ?x1 . }"
+         -> constructResponse
+       Just "PREFIX dbpedia: <http://dbpedia.org/resource/> DESCRIBE dbpedia:Edinburgh WHERE {  }"
+         -> describeResponse
+       raw_req
+         -> error $ "Unexpected URI: \n\n" ++ show raw_req
 
      selectResponse = responseFile status200 [("Content-Type", "application/sparql-results+xml")] "tests/fixtures/sparql_select_response.xml" Nothing
      selectReifiedTripleResponse = responseFile status200 [("Content-Type", "application/sparql-results+xml")] "tests/fixtures/sparql_select_reified_triple_response.xml" Nothing

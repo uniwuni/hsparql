@@ -66,7 +66,7 @@ CONSTRUCT {
   ?x example:hasName ?name
 }
 WHERE {
-  ?x dbprop:genre resource:Web_browser
+  ?x dbprop:genre dbpedia:Web_browser
   ?x foaf:name ?name
   ?x foaf:page ?page
 }
@@ -212,6 +212,9 @@ Here's the respective type:
 askQuery :: EndPoint -> Query AskQuery -> IO Bool
 ```
 
+### More examples
+
+Some extra examples can be found in [tests](tests/Database/HSparql/QueryGeneratorTest.hs).
 
 ## TODOs
 
