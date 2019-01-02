@@ -147,6 +147,7 @@ module Database.HSparql.QueryGenerator
     strstarts,
     strends,
     contains,
+    containsWith,
     strbefore,
     strafter,
     abs_,
@@ -793,6 +794,9 @@ strends = builtinFunc2 StrEndsFunc
 contains :: BuiltinFunc2
 contains = builtinFunc2 ContainsFunc
 
+containsWith :: BuiltinFunc2
+containsWith = builtinFunc2 ContainsWithFunc
+
 -- | strbefore ( string x ) - return the string preceding a match to x
 strbefore :: BuiltinFunc2
 strbefore = builtinFunc2 StrBeforeFunc
@@ -1015,6 +1019,7 @@ data Function
   | StrStartsFunc
   | StrEndsFunc
   | ContainsFunc
+  | ContainsWithFunc 
   | StrBeforeFunc
   | StrAfterFunc
   | ConcatFunc
@@ -1229,6 +1234,7 @@ instance QueryShow Function where
   qshow StrStartsFunc = "STRSTARTS"
   qshow StrEndsFunc = "STARTENDS"
   qshow ContainsFunc = "CONTAINS"
+  qshow ContainsWithFunc= "bif:contains"
   qshow StrBeforeFunc = "STRBEFORE"
   qshow StrAfterFunc = "STRAFTER"
   qshow ConcatFunc = "CONCAT"
