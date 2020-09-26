@@ -2,4 +2,5 @@ resolver: lts-15.16
 packages:
 - '.'
 extra-deps:
-- rdf4h-4.0.2
+- git: https://github.com/robstewart57/rdf4h.git
+  commit: 018755800c6503ddebe27efb7261be1c95ee2f12
