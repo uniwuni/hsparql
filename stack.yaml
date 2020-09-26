@@ -1,10 +1,5 @@
-resolver: lts-8.20
+resolver: lts-15.16
 packages:
 - '.'
 extra-deps:
-- rdf4h-3.0.1
-- hgal-2.0.0.2
-flags:
-  rdf4h:
-    network-uri: true
-    small_base: true
+- rdf4h-4.0.2
