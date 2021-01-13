@@ -247,6 +247,73 @@ WHERE
         selectVars [s, o]
     )
 
+  -- Count distinct subjects and objects query
+  , ( [s|
+SELECT ((COUNT(?x0)) AS ?x4)
+WHERE
+{
+  {
+    SELECT DISTINCT ?x0 WHERE {
+      { ?x0 ?x2 ?x3 . } UNION
+      { ?x1 ?x2 ?x0 . }
+    }
+  }
+}
+|]
+    , createQuery $ do
+        r <- var
+        s <- var
+        p <- var
+        o <- var
+
+        subQuery_ $ do
+          let tt1 = triple_ r p o
+              tt2 = triple_ s p r
+           in do
+             distinct_
+             union_ tt1 tt2
+             selectVars [r]
+
+        countVar <- var
+        select [count r `as` countVar]
+    )
+
+  -- Count number of instances of each class in the dataset.
+  , ( [s|
+SELECT ?x1 ((COUNT(?x0)) AS ?x2) WHERE {
+  ?x0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?x1 .
+} GROUP BY ?x1
+|]
+    , createQuery $ do
+        s <- var
+        o <- var
+
+        triple_ s (iriRef "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") o
+
+        groupBy_ o
+
+        countVar <- var
+        select [SelectVar o, count s `as` countVar]
+    )
+
+  -- Count number of resources typed with a class from Wikidata.
+  , ( [s|
+SELECT ((COUNT(?x0)) AS ?x2) WHERE {
+  ?x0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?x1 .
+  FILTER (CONTAINS((STR(?x1)), "http://www.wikidata.org/entity")) .
+}
+|]
+    , createQuery $ do
+        s <- var
+        o <- var
+
+        triple_ s (iriRef "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") o
+
+        filterExpr_ $ contains (str o) ("http://www.wikidata.org/entity" :: Text)
+
+        countVar <- var
+        select [count s `as` countVar]
+    )
   ]
 
 testSuite :: [Test.Framework.Test]
