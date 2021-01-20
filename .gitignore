@@ -7,3 +7,4 @@ vendor
 TAGS
 sources.txt
 .stack-work
+stack.yaml.lock
