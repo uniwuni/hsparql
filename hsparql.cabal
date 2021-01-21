@@ -32,6 +32,11 @@ library
                , network
                , text
                , network-uri
+               , http-client
+               , http-types
+               , http-conduit
+               , connection
+               , bytestring
   extensions:  RankNTypes FlexibleInstances OverloadedStrings
   ghc-options: -Wall -Wcompat
 
@@ -54,6 +59,8 @@ test-suite test-hsparql
   hs-source-dirs: Database, tests
   other-modules: Database.HSparql.ConnectionTest
                , Database.HSparql.QueryGeneratorTest
+               , DBPedia
+               , Wikidata
   extensions:  OverloadedStrings, FlexibleInstances
   ghc-options: -Wall -Wcompat
 
