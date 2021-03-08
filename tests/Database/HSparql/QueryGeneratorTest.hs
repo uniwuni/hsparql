@@ -314,6 +314,30 @@ SELECT ((COUNT(?x0)) AS ?x2) WHERE {
         countVar <- var
         select [count s `as` countVar]
     )
+
+  -- Create a federated query
+  , ( [s|
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+SELECT ?x1 WHERE {
+  <http://example.org/myfoaf/I> foaf:knows ?x0 .
+  SERVICE <http://people.example.org/sparql> {
+    ?x0 foaf:name ?x1 .
+  }
+}
+|]
+    , createQuery $ do
+        foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+
+        person    <- var
+        name      <- var
+
+        triple_ (iriRef "http://example.org/myfoaf/I") (foaf .:. "knows") person
+
+        service_ (iriRef "http://people.example.org/sparql") $ do
+          triple_ person (foaf .:. "name") name
+
+        selectVars [name]
+    )
   ]
 
 testSuite :: [Test.Framework.Test]

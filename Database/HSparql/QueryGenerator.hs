@@ -20,6 +20,7 @@ module Database.HSparql.QueryGenerator
   , updateTriple, updateTriple_
   , describeIRI, describeIRI_
   , optional, optional_
+  , service, service_
   , union, union_
   , filterExpr, filterExpr_
   , filterExists, filterExists_, filterNotExists, filterNotExists_
@@ -272,6 +273,47 @@ optional q = do
 
 optional_ :: Query a -> Query ()
 optional_ = void . optional
+
+-- |Instruct a federated query processor to invoke the portion of a SPARQL
+-- query against a remote SPARQL endpoint.
+--
+-- For example
+--
+-- > createQuery $ do
+-- >   foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+-- >
+-- >   person    <- var
+-- >   name      <- var
+-- >
+-- >   triple_ (iriRef "http://example.org/myfoaf/I") (foaf .:. "knows") person
+-- >
+-- >   _ <- service (iriRef "http://people.example.org/sparql") $ do
+-- >     triple_ person (foaf .:. "name") name
+-- >
+-- >   selectVars [name]
+--
+--  produces the SPARQL query:
+--
+-- > PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+-- > SELECT ?x1 WHERE {
+-- >   <http://example.org/myfoaf/I> foaf:knows ?x0 .
+-- >   SERVICE <http://people.example.org/sparql> {
+-- >     ?x0 foaf:name ?x1 .
+-- >   }
+-- > }
+service :: IRIRef -- ^ SPARQL endpoint
+        -> Query a -- ^ SPARQL query to invoke against a remote SPARQL endpoint
+        -> Query Pattern
+service endpoint q = do
+  -- Determine the patterns by executing the action on a blank QueryData, and
+  -- then pulling the patterns out from there.
+  let servicePatternGroup  = execQuery0 q $ ServiceGraphPattern endpoint . pattern
+  modify $ \s -> s { pattern = appendPattern servicePatternGroup (pattern s) }
+  return servicePatternGroup
+
+-- |Same as 'service', but without returning the query patterns.
+service_ :: IRIRef -> Query a -> Query ()
+service_ q = void . service q
 
 -- |Add a union structure to the query pattern. As with 'optional' blocks,
 --  variables must be defined prior to the opening of any block.
@@ -871,6 +913,7 @@ data Pattern = QTriple VarOrTerm VarOrTerm VarOrTerm
              | FilterNotExistsPattern GroupGraphPattern
              | Bind Expr Variable
              | OptionalGraphPattern GroupGraphPattern
+             | ServiceGraphPattern IRIRef GroupGraphPattern
              | UnionGraphPattern GroupGraphPattern GroupGraphPattern
              | SubQuery QueryData
                deriving (Show)
@@ -1083,6 +1126,7 @@ instance QueryShow Pattern where
   qshow (FilterNotExistsPattern p) = "FILTER NOT EXISTS " ++ qshow p
   qshow (Bind e v)                 = "BIND(" ++ qshow e ++ " AS " ++ qshow v ++ ")"
   qshow (OptionalGraphPattern p)   = "OPTIONAL " ++ qshow p
+  qshow (ServiceGraphPattern endpoint p)   = "SERVICE " ++ qshow endpoint ++ " " ++ qshow p
   qshow (UnionGraphPattern p1 p2)  = qshow p1 ++ " UNION " ++ qshow p2
   qshow (SubQuery qd)              = intercalate " " ["{ ", qshow qd, " }"]
 
