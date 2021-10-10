@@ -225,45 +225,45 @@ var = do qis <- gets (NE.init . subQueryIdx)
 --  See SPARQL* at <https://wiki.blazegraph.com/wiki/index.php/Reification_Done_Right>
 --  or <https://arxiv.org/abs/1406.3399>.
 embeddedTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> EmbeddedTriple
-embeddedTriple a b c = EmbeddedTriple $ EmbeddedTriple' (varOrTerm a) (varOrTerm b) (varOrTerm c)
+embeddedTriple x y z = EmbeddedTriple $ EmbeddedTriple' (varOrTerm x) (varOrTerm y) (varOrTerm z)
 
 -- |Restrict the query to only results for which values match constants in this
 --  triple, or for which the variables can be bound.
 triple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
-triple a b c = do
-  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+triple x y z = do
+  let t = QTriple (varOrTerm x) (varOrTerm y) (varOrTerm z)
   modify $ \s -> s { pattern = appendPattern t (pattern s) }
   return t
 
 triple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
-triple_ a b c = void $ triple a b c
+triple_ x y z = void $ triple x y z
 
 constructTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
-constructTriple a b c = do
-  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+constructTriple x y z = do
+  let t = QTriple (varOrTerm x) (varOrTerm y) (varOrTerm z)
   modify $ \s -> s { constructTriples = appendTriple t (constructTriples s) }
   return t
 
 constructTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
-constructTriple_ a b c = void $ constructTriple a b c
+constructTriple_ x y z = void $ constructTriple x y z
 
 askTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
-askTriple a b c = do
-  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c)
+askTriple x y z = do
+  let t = QTriple (varOrTerm x) (varOrTerm y) (varOrTerm z)
   modify $ \s -> s { askTriples = appendTriple t (askTriples s) }
   return t
 
 askTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
-askTriple_ a b c = void $ askTriple a b c
+askTriple_ x y z = void $ askTriple x y z
 
 updateTriple :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query Pattern
-updateTriple a b c = do
-  let t = QTriple (varOrTerm a) (varOrTerm b) (varOrTerm c) -- TODO: should only allow terms
+updateTriple x y z = do
+  let t = QTriple (varOrTerm x) (varOrTerm y) (varOrTerm z) -- TODO: should only allow terms
   modify $ \s -> s { updateTriples = appendTriple t (updateTriples s) }
   return t
 
 updateTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
-updateTriple_ a b c = void $ updateTriple a b c
+updateTriple_ x y z = void $ updateTriple x y z
 
 describeIRI :: IRIRef -> Query IRIRef
 describeIRI newIri = do
@@ -345,7 +345,7 @@ union q1 q2 = do
   return union'
 
 union_ :: Query a -> Query b -> Query ()
-union_ a b = void $ union a b
+union_ x y = void $ union x y
 
 filterExists :: Query a -> Query Pattern
 filterExists q = do
@@ -385,7 +385,7 @@ bind e v = do
   return b
 
 bind_ :: Expr -> Variable -> Query ()
-bind_ a b = void $ bind a b
+bind_ x y = void $ bind x y
 
 -- |Perform a subquery.
 subQuery :: Query SelectQuery -> Query Pattern
@@ -828,10 +828,10 @@ type DynamicPredicateObject = (DynamicPredicate, DynamicObject)
 type BlankNodePattern = [DynamicPredicateObject]
 
 instance Show DynamicPredicate where
-  show (DynamicPredicate a) = show a
+  show (DynamicPredicate x) = show x
 
 instance Show DynamicObject where
-  show (DynamicObject a) = show a
+  show (DynamicObject x) = show x
 
 -- |support for blank nodes.
 --
@@ -1060,7 +1060,7 @@ instance QueryShow GraphTerm where
 instance QueryShow VarOrTerm where
   qshow (Var  v) = qshow v
   qshow (Term t) = qshow t
-  qshow (EmbeddedTriple' a b c) = intercalate " " ["<<", qshow a, qshow b, qshow c, ">>"]
+  qshow (EmbeddedTriple' x y z) = intercalate " " ["<<", qshow x, qshow y, qshow z, ">>"]
   qshow (BlankNodePattern' bn) = qshow bn
 
 instance QueryShow [VarOrTerm] where
@@ -1145,7 +1145,7 @@ instance QueryShow [SelectExpr] where
   qshow = intercalate " " . fmap qshow
 
 instance QueryShow Pattern where
-  qshow (QTriple a b c)            = intercalate " " [qshow a, qshow b, qshow c, "."]
+  qshow (QTriple x y z)            = intercalate " " [qshow x, qshow y, qshow z, "."]
   qshow (Filter e)                 = "FILTER " ++ qshow e ++ " ."
   qshow (FilterExistsPattern p)    = "FILTER EXISTS " ++ qshow p
   qshow (FilterNotExistsPattern p) = "FILTER NOT EXISTS " ++ qshow p

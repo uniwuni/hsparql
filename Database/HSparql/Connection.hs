@@ -71,8 +71,8 @@ structureContent s =
       where
         pVar v = maybe Unbound (value . head . elChildren) $ filterElement (pred_ v) e
         pred_ v e' = isJust $ do
-          a <- findAttr (unqual "name") e'
-          guard $ a == v
+          x <- findAttr (unqual "name") e'
+          guard $ x == v
 
     value :: Element -> BindingValue
     value e =

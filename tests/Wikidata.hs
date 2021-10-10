@@ -4,7 +4,6 @@
 module Wikidata where
 
 import Control.Monad (forM_)
-import Data.Maybe
 import Database.HSparql.Connection
 import Database.HSparql.QueryGenerator
 
@@ -19,8 +18,8 @@ wdtQuery = do
   p <- var
   o <- var
 
-  triple s p o
+  triple_ s p o
 
-  limit 10
+  limit_ 10
 
   selectVars [s, p, o]

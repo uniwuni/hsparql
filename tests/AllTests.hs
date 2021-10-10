@@ -4,14 +4,14 @@ module Main where
 
 import Control.Concurrent (forkIO)
 import Control.Monad (join)
-import DBPedia -- to ensure the DBPedia.hs file compiles
+import DBPedia () -- to ensure the DBPedia.hs file compiles
 import Database.HSparql.ConnectionTest
 import Database.HSparql.QueryGeneratorTest
 import Network.HTTP.Types (status200)
 import Network.Wai
 import Network.Wai.Handler.Warp (run)
 import Test.Framework
-import Wikidata -- to ensure the Wikidata.hs file compiles
+import Wikidata () -- to ensure the Wikidata.hs file compiles
 
 main :: IO ()
 main =
