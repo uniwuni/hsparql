@@ -17,6 +17,8 @@ module Database.HSparql.Connection
     askQueryRaw,
     updateQueryRaw,
     describeQueryRaw,
+    -- * parse query results
+    structureContent
   )
 where
 
@@ -36,6 +38,7 @@ import Network.HTTP.Conduit
 import Network.HTTP.Types.Header
 import Text.RDF.RDF4H.TurtleParser
 import Text.XML.Light
+import Text.XML.Light.Lexer (XmlSource)
 
 -- | URI of the SPARQL endpoint.
 type EndPoint = String
@@ -54,7 +57,7 @@ sparqlResult s = (unqual s) {qURI = Just "http://www.w3.org/2005/sparql-results#
 
 -- | Transform the 'String' result from the HTTP request into a two-dimensional
 --   table storing the bindings for each variable in each row.
-structureContent :: String -> Maybe [[BindingValue]]
+structureContent :: XmlSource a => a -> Maybe [[BindingValue]]
 structureContent s =
   do
     e <- doc
