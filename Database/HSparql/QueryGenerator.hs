@@ -174,6 +174,7 @@ module Database.HSparql.QueryGenerator
     AskQuery (..),
     UpdateQuery (..),
     DescribeQuery (..),
+    IRIRef (..),
 
     -- * Classes
     TermLike (..),
@@ -569,9 +570,11 @@ instance TermLike Integer where
 instance TermLike T.Text where
   varOrTerm = Term . RDFLiteralTerm . RDF.plainL
 
+-- | Represent a literal with a language. Ex. "earth"@en
 instance TermLike (T.Text, T.Text) where
   varOrTerm (s, lang') = Term . RDFLiteralTerm $ RDF.plainLL s lang'
 
+-- | Represent a literal with its type. Ex. "1"^^xsd:integer
 instance TermLike (T.Text, IRIRef) where
   varOrTerm (s, ref) = Term . RDFLiteralTerm $ RDF.typedL s (getFQN ref)
 
