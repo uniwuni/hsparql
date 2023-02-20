@@ -9,7 +9,7 @@ import Test.HUnit
 
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.String.QQ (s)
+import qualified Data.String.QQ as Str
 
 import Database.HSparql.QueryGenerator
 
@@ -33,14 +33,14 @@ instance CreateQuery (Query DescribeQuery) where
 
 normalizeWhitespace :: Text -> Text
 normalizeWhitespace = T.strip
-                      . (T.replace "  " " ")
-                      . (T.replace "  " " ")
-                      . (T.replace "  " " ")
-                      . (T.replace "\n" " ")
+                      . T.replace "  " " "
+                      . T.replace "  " " "
+                      . T.replace "  " " "
+                      . T.replace "\n" " "
 
 queryTexts :: [(Text, Text)]
 queryTexts =
-  [ ( [s|
+  [ ( [Str.s|
 PREFIX dbpedia: <http://dbpedia.org/resource/>
 PREFIX dbprop: <http://dbpedia.org/property/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
@@ -67,7 +67,7 @@ WHERE {
         selectVars [name, page]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX dbpedia: <http://dbpedia.org/resource/>
 PREFIX dbprop: <http://dbpedia.org/property/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
@@ -100,7 +100,7 @@ WHERE {
         return ConstructQuery { queryConstructs = [construct] }
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX dbpedia: <http://dbpedia.org/resource/> DESCRIBE dbpedia:Edinburgh WHERE {  }
 |]
     , createQuery $ do
@@ -109,7 +109,7 @@ PREFIX dbpedia: <http://dbpedia.org/resource/> DESCRIBE dbpedia:Edinburgh WHERE 
         return DescribeQuery { queryDescribe = uri }
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX dbpedia: <http://dbpedia.org/resource/>
 PREFIX dbprop: <http://dbpedia.org/property/>
 ASK {
@@ -127,7 +127,7 @@ ASK {
     )
 
   -- https://github.com/robstewart57/hsparql/pull/31
-  , ( [s|
+  , ( [Str.s|
 PREFIX : <http://example1.com/>
 PREFIX ex: <http://example2.com/>
 SELECT ?x0 WHERE {
@@ -156,7 +156,7 @@ SELECT ?x0 WHERE {
     )
 
   -- https://www.w3.org/TR/sparql11-query/#OptionalMatching
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 SELECT ?x1 ?x2
 WHERE {
@@ -180,7 +180,7 @@ WHERE {
     )
 
   -- https://www.w3.org/TR/sparql11-query/#alternatives
-  , ( [s|
+  , ( [Str.s|
 PREFIX dc10: <http://purl.org/dc/elements/1.0/>
 PREFIX dc11: <http://purl.org/dc/elements/1.1/>
 
@@ -202,7 +202,7 @@ WHERE { { ?x0 dc10:title ?x1 . } UNION { ?x0 dc11:title ?x1 . } }
     )
 
   -- https://www.w3.org/TR/sparql11-query/#neg-notexists
-  , ( [s|
+  , ( [Str.s|
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
@@ -228,7 +228,7 @@ WHERE
         selectVars [person]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX ex: <http://example.com/>
 
 SELECT ?x0 ?x1
@@ -249,7 +249,7 @@ WHERE
     )
 
   -- Count distinct subjects and objects query
-  , ( [s|
+  , ( [Str.s|
 SELECT ((COUNT(?x0)) AS ?x4)
 WHERE
 {
@@ -280,7 +280,7 @@ WHERE
     )
 
   -- Count number of instances of each class in the dataset.
-  , ( [s|
+  , ( [Str.s|
 SELECT ?x1 ((COUNT(?x0)) AS ?x2) WHERE {
   ?x0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?x1 .
 } GROUP BY ?x1
@@ -298,7 +298,7 @@ SELECT ?x1 ((COUNT(?x0)) AS ?x2) WHERE {
     )
 
   -- Count number of resources typed with a class from Wikidata.
-  , ( [s|
+  , ( [Str.s|
 SELECT ((COUNT(?x0)) AS ?x2) WHERE {
   ?x0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?x1 .
   FILTER (CONTAINS((STR(?x1)), "http://www.wikidata.org/entity")) .
@@ -317,7 +317,7 @@ SELECT ((COUNT(?x0)) AS ?x2) WHERE {
     )
 
   -- Create a federated query
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 SELECT ?x1 WHERE {
   <http://example.org/myfoaf/I> foaf:knows ?x0 .
@@ -341,7 +341,7 @@ SELECT ?x1 WHERE {
     )
 
   -- Create query containing property paths
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -361,7 +361,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -380,7 +380,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -399,7 +399,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -418,7 +418,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -438,7 +438,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX ex: <http://example.com/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -458,7 +458,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX ex: <http://example.com/>
 
 SELECT ?x0 ?x1 WHERE {
@@ -478,7 +478,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
@@ -500,7 +500,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
 SELECT ?x0 ?x1 WHERE {
@@ -519,7 +519,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
 SELECT ?x0 ?x1 WHERE {
@@ -538,7 +538,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
@@ -560,7 +560,7 @@ SELECT ?x0 ?x1 WHERE {
         selectVars [s, o]
     )
 
-  , ( [s|
+  , ( [Str.s|
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?x0 ?x1 WHERE {

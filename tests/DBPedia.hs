@@ -37,26 +37,26 @@ simpleSelect :: Query SelectQuery
 simpleSelect = do
   resource <- prefix "dbprop" (iriRef "http://dbpedia.org/resource/")
   dbpprop <- prefix "dbpedia" (iriRef "http://dbpedia.org/property/")
-  foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+  foaf' <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
 
   x <- var
   name <- var
 
-  triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
-  triple x (foaf .:. "name") name
+  triple_ x (dbpprop .:. "genre") (resource .:. "Web_browser")
+  triple_ x (foaf' .:. "name") name
 
   selectVars [name]
 
 simpleSelectWithLiteral :: Query SelectQuery
 simpleSelectWithLiteral = do
   ontology <- prefix "dbpedia" (iriRef "http://dbpedia.org/ontology/")
-  rdf <- prefix "rdf" (iriRef "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-  rdfs <- prefix "rdfs" (iriRef "http://www.w3.org/2000/01/rdf-schema#")
+  rdf' <- prefix "rdf" (iriRef "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+  rdfs' <- prefix "rdfs" (iriRef "http://www.w3.org/2000/01/rdf-schema#")
 
   l <- var
 
-  triple l (rdf .:. "type") (ontology .:. "ProgrammingLanguage")
-  triple l (rdfs .:. "label") (("D (programming language)", "en") :: (Text, Text))
+  triple_ l (rdf' .:. "type") (ontology .:. "ProgrammingLanguage")
+  triple_ l (rdfs' .:. "label") (("D (programming language)", "en") :: (Text, Text))
 
   selectVars [l]
 
@@ -64,7 +64,7 @@ simpleConstruct :: Query ConstructQuery
 simpleConstruct = do
   resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
   dbpprop <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
-  foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+  foaf' <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
   example <- prefix "example" (iriRef "http://www.example.com/")
 
   x <- var
@@ -72,8 +72,8 @@ simpleConstruct = do
 
   construct <- constructTriple x (example .:. "hasName") name
 
-  triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
-  triple x (foaf .:. "name") name
+  triple_ x (dbpprop .:. "genre") (resource .:. "Web_browser")
+  triple_ x (foaf' .:. "name") name
 
   return ConstructQuery {queryConstructs = [construct]}
 
@@ -97,24 +97,24 @@ trickySelect :: Query SelectQuery
 trickySelect = do
   resource <- prefix "dbpedia" (iriRef "http://dbpedia.org/resource/")
   dbpprop <- prefix "dbprop" (iriRef "http://dbpedia.org/property/")
-  foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
-  owl <- prefix "owl" (iriRef "http://www.w3.org/2002/07/owl#")
+  foaf' <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+  owl' <- prefix "owl" (iriRef "http://www.w3.org/2002/07/owl#")
 
   x <- var
   name <- var
   fbase <- var
 
   -- Identify
-  triple x (dbpprop .:. "genre") (resource .:. "Web_browser")
+  triple_ x (dbpprop .:. "genre") (resource .:. "Web_browser")
 
   -- Query
-  triple x (foaf .:. "name") name
-  optional $ do
-    triple x (owl .:. "sameAs") fbase
-    filterExpr $ regex fbase ("freebase" :: Text)
-  filterExpr $ notExpr $ bound fbase
+  triple_ x (foaf' .:. "name") name
+  optional_ $ do
+    triple_ x (owl' .:. "sameAs") fbase
+    filterExpr_ $ regex fbase ("freebase" :: Text)
+  filterExpr_ $ notExpr $ bound fbase
 
-  distinct
+  distinct_
 
   orderNext name
   orderNextDesc fbase
@@ -123,9 +123,9 @@ trickySelect = do
 
 frenchFilmsSelect :: Query SelectQuery
 frenchFilmsSelect = do
-  skos <- prefix "skos" (iriRef "http://www.w3.org/2004/02/skos/core#")
+  skos' <- prefix "skos" (iriRef "http://www.w3.org/2004/02/skos/core#")
   film <- var
-  triple film (skos .:. "subject") (iriRef "http://dbpedia.org/resource/Category:French_films")
+  triple_ film (skos' .:. "subject") (iriRef "http://dbpedia.org/resource/Category:French_films")
   selectVars [film]
 
 -- return SelectQuery {queryExpr = [film]}
@@ -136,18 +136,18 @@ fpsSelect = do
   hasValue <- var
   isValueOf <- var
 
-  union
-    (triple (iriRef "http://dbpedia.org/resource/Category:First-person_shooters") property hasValue)
-    (triple isValueOf property (iriRef "http://dbpedia.org/resource/Category:First-person_shooters"))
+  union_
+    (triple_ (iriRef "http://dbpedia.org/resource/Category:First-person_shooters") property hasValue)
+    (triple_ isValueOf property (iriRef "http://dbpedia.org/resource/Category:First-person_shooters"))
 
   selectVars [isValueOf]
 
 berlinersSelect :: Query SelectQuery
 berlinersSelect = do
-  xsd <- prefix "xsd" (iriRef "http://www.w3.org/2001/XMLSchema#")
+  xsd' <- prefix "xsd" (iriRef "http://www.w3.org/2001/XMLSchema#")
   prop <- prefix "prop" (iriRef "http://dbpedia.org/property/")
   dbo <- prefix "dbo" (iriRef "http://dbpedia.org/ontology/")
-  foaf <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
+  foaf' <- prefix "foaf" (iriRef "http://xmlns.com/foaf/0.1/")
   resc <- prefix "resc" (iriRef "http://dbpedia.org/resource/")
 
   name <- var
@@ -156,13 +156,13 @@ berlinersSelect = do
   person <- var
   knownfor <- var
 
-  triple person (prop .:. "birthPlace") (resc .:. "Berlin")
-  triple person (dbo .:. "birthDate") birth
-  triple person (foaf .:. "name") name
-  triple person (dbo .:. "deathDate") death
+  triple_ person (prop .:. "birthPlace") (resc .:. "Berlin")
+  triple_ person (dbo .:. "birthDate") birth
+  triple_ person (foaf' .:. "name") name
+  triple_ person (dbo .:. "deathDate") death
 
-  filterExpr $ birth .<. ("1900-01-01" :: Text, xsd .:. "date")
+  filterExpr_ $ birth .<. ("1900-01-01" :: Text, xsd' .:. "date")
 
-  optional $ triple person (prop .:. "KnownFor") knownfor
+  optional_ $ triple_ person (prop .:. "KnownFor") knownfor
 
   selectVars [name, birth, death, person, knownfor]
