@@ -170,14 +170,13 @@ updateQueryRaw :: Database.HSparql.Connection.EndPoint -> String -> IO Bool
 updateQueryRaw ep q = do
   let uri = ep
       body = q
-      h1 = (hContentLength, B.pack (show (length body)))
       h2 = (hContentType, "application/sparql-update")
       h3 = (hUserAgent, "hsparql-client")
   request' <- parseRequest uri
   let request =
         request'
           { method = "POST",
-            requestHeaders = [h1, h2, h3],
+            requestHeaders = [h2, h3],
             requestBody = RequestBodyBS (T.encodeUtf8 (T.pack body))
           }
   let settings = mkManagerSettings (TLSSettingsSimple True False False) Nothing

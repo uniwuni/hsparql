@@ -13,7 +13,6 @@ module Database.HSparql.QueryGenerator
     createAskQuery,
     createUpdateQuery,
     createDescribeQuery,
-
     -- * Query Actions
     prefix,
     var,
@@ -48,7 +47,9 @@ module Database.HSparql.QueryGenerator
     select,
     selectVars,
     as,
-
+    update,
+    ask,
+    construct,
     -- ** Property paths
 
     -- | SPARQL 1.1 property paths documentation: https://www.w3.org/TR/sparql11-query/#propertypaths
@@ -126,7 +127,7 @@ module Database.HSparql.QueryGenerator
     max_,
     avg,
     groupConcat,
-
+    sample,
     -- ** Builtin Functions
     str,
     lang,
@@ -157,6 +158,8 @@ module Database.HSparql.QueryGenerator
     concat_,
     replace,
     rand,
+    iri,
+    encodeForURI,
 
     -- * Printing Queries
     qshow,
@@ -315,6 +318,14 @@ updateTriple x y z = do
 
 updateTriple_ :: (SubjectTermLike a, PredicateTermLike b, ObjectTermLike c) => a -> b -> c -> Query ()
 updateTriple_ x y z = void $ updateTriple x y z
+
+update :: Query UpdateQuery
+ask :: Query AskQuery
+construct :: Query ConstructQuery
+
+update = UpdateQuery <$> gets updateTriples
+ask = AskQuery <$> gets askTriples
+construct = ConstructQuery <$> gets constructTriples
 
 describeIRI :: IRIRef -> Query IRIRef
 describeIRI newIri = do
@@ -761,6 +772,10 @@ max_ = builtinFunc1 MaxFunc
 avg :: BuiltinFunc1
 avg = builtinFunc1 AvgFunc
 
+-- | Sample from multiset
+sample :: BuiltinFunc1
+sample = builtinFunc1 SampleFunc
+
 -- | Cast as a string
 str :: BuiltinFunc1
 str = builtinFunc1 StrFunc
@@ -864,11 +879,18 @@ isBlank = builtinFunc1 IsBlankFunc
 isLiteral :: BuiltinFunc1
 isLiteral = builtinFunc1 IsLiteralFunc
 
+encodeForURI :: BuiltinFunc1
+encodeForURI = builtinFunc1 IsLiteralFunc
+
+iri :: BuiltinFunc1
+iri = builtinFunc1 IRIFunc
+
 regex :: BuiltinFunc2
 regex = builtinFunc2 RegexFunc
 
 regexOpts :: BuiltinFunc3
 regexOpts = builtinFunc3 RegexFunc
+
 
 -- Default QueryData
 queryData :: QueryData
@@ -1004,6 +1026,7 @@ data Function
   | MinFunc
   | MaxFunc
   | AvgFunc
+  | SampleFunc
   | StrFunc
   | LangFunc
   | LangMatchesFunc
@@ -1032,6 +1055,10 @@ data Function
   | CeilFunc
   | FloorFunc
   | RandFunc
+  | UUIDFunc
+  | StrUUIDFunc
+  | EncodeForURIFunc
+  | IRIFunc
   deriving (Show)
 
 data ParameterizedFunction = GroupConcat deriving (Show)
@@ -1219,6 +1246,7 @@ instance QueryShow Function where
   qshow MinFunc = "MIN"
   qshow MaxFunc = "MAX"
   qshow AvgFunc = "AVG"
+  qshow SampleFunc = "SAMPLE"
   qshow StrFunc = "STR"
   qshow LangFunc = "LANG"
   qshow LangMatchesFunc = "LANGMATCHES"
@@ -1247,7 +1275,11 @@ instance QueryShow Function where
   qshow CeilFunc = "CEIL"
   qshow FloorFunc = "FLOOR"
   qshow RandFunc = "RAND"
-
+  qshow UUIDFunc = "UUID"
+  qshow StrUUIDFunc = "STRUUID"
+  qshow RandFunc = "RAND"
+  qshow EncodeForURIFunc = "ENCODE_FOR_URI"
+  qshow IRIFunc = "IRI"
 instance QueryShow ParameterizedFunction where
   qshow GroupConcat = "GROUP_CONCAT"
 
@@ -1363,9 +1395,9 @@ escapeSpecialChar :: T.Text -> T.Text
 escapeSpecialChar = T.concatMap handleChar
   where
     -- FIXME: probably more cases to handle
-    handleChar '\n' = "\n"
-    handleChar '\t' = "\t"
-    handleChar '\r' = "\r"
+    handleChar '\n' = "\\n"
+    handleChar '\t' = "\\t"
+    handleChar '\r' = "\\r"
     handleChar '"' = "\\\""
     handleChar '\\' = "\\\\"
     handleChar c = T.singleton c
